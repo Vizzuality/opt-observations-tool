@@ -1,0 +1,57 @@
+@import 'src/settings.scss';
+
+:host {
+  margin: 0 0 0 20px;
+  &:first-child { margin: 0; }
+  ul {
+    position: relative;
+    display: flex;
+    align-items: stretch;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+
+    &:after {
+      display: block;
+      position: absolute;
+      bottom: 1px;
+      left: 0;
+      height: 1px;
+      width: 100%;
+      background-color: #CCC;
+      content: '';
+    }
+
+
+    li {
+      position: relative;
+      z-index: 1;
+      display: flex;
+      justify-content: center;
+      align-items:  center;
+      width: 100%;
+      padding: 10px;
+      text-align: center;
+      font-size: $font-size-default;
+      line-height: 1;
+      cursor: pointer;
+      outline: none;
+
+      &.active {
+        font-weight: $font-weight-bold;
+
+        &:after {
+          display: block;
+          position: absolute;
+          bottom: 0;
+          left: 0;
+          height: 3px;
+          width: 100%;
+          background-color: $color-primary;
+          content: '';
+        }
+      }
+    }
+  }
+
+}

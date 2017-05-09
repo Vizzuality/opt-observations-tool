@@ -1,0 +1,22 @@
+<div class="c-container -j-between">
+  <h2>Laws ({{laws.length}})</h2>
+  <div class="c-button-container -j-end">
+    <button (click)="triggerNewLaw()" class="c-button -primary">
+      New law
+    </button>
+  </div>
+</div>
+
+<ngx-datatable class="wri"
+  #table
+  [rows]="laws"
+  columnMode="force"
+  headerHeight=false
+>
+  <ngx-datatable-column prop="legal_reference" name="Legal Reference">
+  </ngx-datatable-column>
+  <ngx-datatable-column prop="legal_penalty" name="Legal Penalty">
+  </ngx-datatable-column>
+  <ngx-datatable-column prop="vpa_indicator" name="VPA indicator">
+  </ngx-datatable-column>
+</ngx-datatable>

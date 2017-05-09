@@ -1,0 +1,118 @@
+@import 'src/settings.scss';
+@import 'src/styles/mixins.scss';
+
+:host {
+  display: block;
+  overflow: hidden;
+
+  ul {
+    position: relative;
+    display: flex;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+
+    li {
+      font-size: $font-size-default;
+      display: flex;
+      height: 42px;
+      flex-shrink: 0; // Required for the mobile
+      margin-right: 10px;
+      line-height: 42px;
+      text-transform: uppercase;
+
+      &:last-of-type {
+        margin-right: 0;
+      }
+
+      &.-active {
+        position: relative;
+        font-weight: $font-weight-bold;
+
+        &:after {
+          display: block;
+          position: absolute;
+          bottom: 0;
+          left: 10px;
+          height: 6px;
+          width: calc(100% - 20px);
+          background-color: $color-primary;
+          content: '';
+        }
+      }
+
+      > a,
+      > button {
+        padding: 0 10px;
+        cursor: pointer;
+        color: $black;
+        text-decoration: none;
+      }
+    }
+
+    &.-mini {
+      float: left;
+
+      &:after {
+        display: block;
+        position: absolute;
+        bottom: 1px;
+        left: 0;
+        height: 1px;
+        width: 100%;
+        background-color: #CCC;
+        content: '';
+      }
+
+      li {
+        position: relative;
+        z-index: 1;
+        height: 35px;
+        line-height: 35px;
+        font-size: .8em;
+        text-transform: none;
+
+        &.-active:after {
+          height: 3px;
+          width: 100%;
+          left: 0;
+        }
+
+        &:not(.-active) {
+          opacity: .6;
+        }
+
+        > a,
+        > button {
+          padding: 0;
+        }
+      }
+    }
+
+    &.-vertical {
+      flex-direction: column;
+      margin: 20px 0 0;
+
+      li {
+        text-transform: none;
+        font-size: $font-size-big;
+
+        &.-active {
+          font-weight: $font-weight-bold;
+
+          &:after {
+            @include arrow(7px, 2px, $black, right);
+
+            position: absolute;
+            top: calc(50% - 4px);
+            left: -8px;
+            background-color: transparent;
+          }
+
+          a { color: $color-primary; }
+        }
+      }
+    }
+  }
+
+}
