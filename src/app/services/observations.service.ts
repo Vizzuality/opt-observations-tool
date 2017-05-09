@@ -18,13 +18,25 @@ export class ObservationsService {
   getByType(type: String): Promise<Observation[]> {
     return this.datastoreService.query(Observation, {
       type: type,
-      include: 'countries.name,governments'
+      page: { size: 10000 }
+    }).toPromise();
+  }
+  getById(observationId: String): Promise<Observation[]> {
+    return this.datastoreService.query(Observation, {
+      id: observationId
     }).toPromise();
   }
 
   createObservation(formValues): Promise<any> {
     const payload = { observation: formValues };
     return this.http.post(`${environment.apiUrl}/observations`, payload)
+      .map(response => response.json())
+      .toPromise();
+  }
+
+  updateObservation(formValues): Promise<any> {
+    const payload = { observation: formValues };
+    return this.http.patch(`${environment.apiUrl}/observations`, payload)
       .map(response => response.json())
       .toPromise();
   }

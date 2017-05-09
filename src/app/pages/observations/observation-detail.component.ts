@@ -1,3 +1,4 @@
+import { Observation } from 'app/models/observation.model';
 import { ObservationsService } from 'app/services/observations.service';
 import { Severity } from './../../models/severity.model';
 import { Router } from '@angular/router';
@@ -24,6 +25,7 @@ import { DatePickerOptions } from 'ng2-datepicker';
 export class ObservationDetailComponent implements OnInit {
 
   private titleText: String = 'New observation';
+  private submitButtonText: String = 'Create';
   private model: any = {};
   private loading = false;
   private returnUrl: string;
@@ -36,6 +38,9 @@ export class ObservationDetailComponent implements OnInit {
   private dateOptions: DatePickerOptions;
   private type: String;
   private governanceSelected: boolean;
+  private mode: string;
+  private observationID: string;
+  private observation: Observation;
 
   constructor(
     private countriesService: CountriesService,
@@ -51,6 +56,37 @@ export class ObservationDetailComponent implements OnInit {
       this.dateOptions = new DatePickerOptions();
       this.type = 'operator';
       this.governanceSelected = false;
+
+      const url = this.router.url;
+
+      if (url.endsWith('new')) {
+        this.setMode('new');
+      } else {
+        this.setMode('edit');
+        const values: string[] = url.split('/');
+        this.observationID = values[values.length-1];
+        this.loadObservation();
+      }
+  }
+
+  setMode(mode: string) {
+    this.mode = mode;
+    if (this.mode === 'edit') {
+      this.titleText = 'Edit observation';
+      this.submitButtonText = 'Update';
+    }else if(this.mode === 'new') {
+      this.titleText = 'New observation';
+      this.submitButtonText = 'Create';
+    }
+  }
+
+  loadObservation() {
+    this.observationsService.getById(this.observationID).then(
+      data => {
+        this.observation = data[0];
+        console.log(this.observation);
+      }
+    );
   }
 
   onTypeChange(event): void{
@@ -75,6 +111,7 @@ export class ObservationDetailComponent implements OnInit {
   onCancel(): void{
     this.router.navigate(['/private/observations']);
   }
+
   onSubmit(formValues): void{
     const formattedDate = formValues.publication_date.formatted;
     const valuesUpdated = formValues;
@@ -82,7 +119,9 @@ export class ObservationDetailComponent implements OnInit {
     valuesUpdated.publication_date = formattedDate;
 
     this.loading = true;
-    this.observationsService.createObservation(valuesUpdated).then(
+
+    if (this.mode === 'new') {
+      this.observationsService.createObservation(valuesUpdated).then(
         data => {
           alert('Observation created successfully!');
           this.loading = false;
@@ -93,9 +132,22 @@ export class ObservationDetailComponent implements OnInit {
         alert(errorMessage);
         this.loading = false;
       });
+    } else if (this.mode === 'edit') {
+      this.observationsService.updateObservation(valuesUpdated).then(
+        data => {
+          alert('Observation updated successfully!');
+          this.loading = false;
+        }
+      ).catch(error => {
+        const errorMessage = error.json().errors[0].title;
+        alert(errorMessage);
+        this.loading = false;
+      });
+    }
   }
 
   ngOnInit(): void {
+
     // ----- COUNTRIES ----
     this.countriesService.getAll().then(
       data => {
