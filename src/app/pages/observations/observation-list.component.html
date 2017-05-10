@@ -1,6 +1,6 @@
 <div class="l-wrapper">
-  <div class="c-container -j-between">
-    <div class="c-container -j-start">
+  <div class="c-container -j-between -t-d-column -t-a-start">
+    <div class="c-container -j-start -t-d-column -t-a-start">
       <h2>Observations ({{rows.length}})</h2>
       <otp-navigation
         layout="mini"
@@ -17,8 +17,6 @@
     [rowHeight]="'auto'"
     columnMode="force"
     headerHeight=false
-    [selected]="selected"
-    selectionType="single"
     *ngIf="rows"
   >
     <ngx-datatable-column prop="publication_date" name="Date" maxWidth=100>
@@ -28,7 +26,6 @@
     </ngx-datatable-column>
     <ngx-datatable-column prop="country.iso" name="Country"></ngx-datatable-column>
     <ngx-datatable-column prop="operator.name" name="Operator"></ngx-datatable-column>
-    <ngx-datatable-column prop="government.government_entity" name="Forest Unit"></ngx-datatable-column>
     <ngx-datatable-column name="Category">
       <ng-template let-row="row" ngx-datatable-cell-template>
        {{getCategory(row)}}
@@ -37,10 +34,10 @@
     <ngx-datatable-column prop="details" name="Observation"></ngx-datatable-column>
     <ngx-datatable-column prop="severity.level" name="Severity"></ngx-datatable-column>
     <ngx-datatable-column name="Actions">
-      <ng-template let-row="row" ngx-datatable-cell-template>
-        <button (click)="onEdit(row.id)">EDIT</button>
-        <button (click)="onDelete(row)">DELETE</button>
-      </ng-template>
+     <ng-template let-row="row" ngx-datatable-cell-template>
+       <button class="action" (click)="onEdit(row)"><otp-icon name="#icon-edit"></otp-icon></button>
+       <button class="action" (click)="onDelete(row)"><otp-icon name="#icon-delete"></otp-icon></button>
+     </ng-template>
     </ngx-datatable-column>
   </ngx-datatable>
 </div>
