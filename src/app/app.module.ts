@@ -1,3 +1,4 @@
+import { IconComponent } from 'app/shared/icons/icon.component';
 import { AnnexGovernanceListComponent } from 'app/pages/fields/subcategories/governance/annex-governance-list.component';
 import { AnnexGovernanceDetailComponent } from 'app/pages/fields/subcategories/governance/annex-governance-detail.component';
 import { AnnexOperatorListComponent } from 'app/pages/fields/subcategories/operators/annex-operator-list.component';
@@ -41,7 +42,8 @@ import { DatastoreService } from 'app/services/datastore.service';
 import { CountriesService } from 'app/services/countries.service';
 import { RegisterComponent } from 'app/pages/register/register.component';
 import { ObservationListComponent } from 'app/pages/observations/observation-list.component';
-import { AuthService, TokenService } from 'app/services/auth.service';
+import { AuthService } from 'app/services/auth.service';
+import { TokenService } from 'app/services/token.service';
 import { LoginComponent } from 'app/pages/login/login.component';
 import { AppComponent } from 'app/app.component';
 import { AppRoutingModule } from 'app/app-routing.module';
@@ -95,7 +97,8 @@ import { ObservationsService } from 'app/services/observations.service';
     AnnexOperatorDetailComponent,
     AnnexOperatorListComponent,
     AnnexGovernanceDetailComponent,
-    AnnexGovernanceListComponent
+    AnnexGovernanceListComponent,
+    IconComponent
   ],
   imports: [
     JsonApiModule,
