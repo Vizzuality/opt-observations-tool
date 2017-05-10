@@ -41,6 +41,13 @@ export class ObservationDetailComponent implements OnInit {
   private mode: string;
   private observationID: string;
   private observation: Observation;
+  private observationIsFromGovernance = false;
+  // data loaded flags
+  private countriesLoaded = false;
+  private subcategoriesLoaded = false;
+  private severitiesLoaded = false;
+  private observersLoaded = false;
+  private operatorsLoaded = false;
 
   constructor(
     private countriesService: CountriesService,
@@ -65,7 +72,6 @@ export class ObservationDetailComponent implements OnInit {
         this.setMode('edit');
         const values: string[] = url.split('/');
         this.observationID = values[values.length-1];
-        this.loadObservation();
       }
   }
 
@@ -82,11 +88,24 @@ export class ObservationDetailComponent implements OnInit {
 
   loadObservation() {
     this.observationsService.getById(this.observationID).then(
-      data => {
-        this.observation = data[0];
-        console.log(this.observation);
-      }
-    );
+      observationData => {
+        this.observationIsFromGovernance = observationData.observation_type === 'AnnexGovernance';
+        if (this.observationIsFromGovernance) {
+          this.subCategoriesService.getAllGovernances().then(
+            data => {
+              this.subCategories = data;
+              this.observation = observationData;
+            }
+          );
+        } else {
+          this.subCategoriesService.getAllOperators().then(
+            data => {
+              this.subCategories = data;
+              this.observation = observationData;
+            }
+          );
+        }
+    });
   }
 
   onTypeChange(event): void{
@@ -94,18 +113,22 @@ export class ObservationDetailComponent implements OnInit {
     this.governanceSelected = this.type === 'AnnexGovernance';
 
     if (this.type === 'AnnexOperator') {
-      this.subCategoriesService.getAllOperators().then(
-        data => {
-          this.subCategories = data;
-        }
-      );
+      this.loadAllOperators();
     } else if(this.type === 'AnnexGovernance') {
-      this.subCategoriesService.getAllGovernances().then(
-        data => {
-          this.subCategories = data;
-        }
-      );
+      this.loadAllGovernances();
     }
+  }
+
+  loadAllOperators(): void{
+    this.subCategoriesService.getAllOperators().then(
+        data => this.subCategories = data
+      );
+  }
+
+  loadAllGovernances(): void{
+    this.subCategoriesService.getAllGovernances().then(
+        data => this.subCategories = data
+      );
   }
 
   onCancel(): void{
@@ -152,29 +175,38 @@ export class ObservationDetailComponent implements OnInit {
     this.countriesService.getAll().then(
       data => {
          this.countries = data;
-      }
-    );
-    // ----- SUB CATEGORIES ----
-    this.subCategoriesService.getAllOperators().then(
-      data => {
-        this.subCategories = data;
+         this.countriesLoaded = true;
+         this.initialDataLoaded();
       }
     );
     // ----- OBSERVERS ----
     this.observersService.getAll().then(
       data => {
          this.observers = data;
+         this.observersLoaded = true;
+         this.initialDataLoaded();
       }
     );
     // ----- OPERATORS ----
     this.operatorsService.getAll().then(
       data => {
          this.operators = data;
+         this.operatorsLoaded = true;
+         this.initialDataLoaded();
       }
     );
   }
 
+  initialDataLoaded(): void{
+    if (this.operatorsLoaded && this.observersLoaded && this.countriesLoaded) {
+      if (this.mode === 'edit') {
+      this.loadObservation();
+    }
+    }
+  }
+
   onSubCategoryChange(value) {
+    debugger;
     this.severities = this.subCategories.find((val) => {
       return val.id === value;
     }).severities;

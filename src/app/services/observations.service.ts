@@ -18,13 +18,11 @@ export class ObservationsService {
   getByType(type: String): Promise<Observation[]> {
     return this.datastoreService.query(Observation, {
       type: type,
-      page: { size: 10000 }
+      page: { size: 100 }
     }).toPromise();
   }
-  getById(observationId: String): Promise<Observation[]> {
-    return this.datastoreService.query(Observation, {
-      id: observationId
-    }).toPromise();
+  getById(observationId: string): Promise<Observation> {
+    return this.datastoreService.findRecord(Observation, observationId).toPromise();
   }
 
   createObservation(formValues): Promise<any> {
