@@ -20,16 +20,14 @@ export class OperatorListComponent implements OnInit {
   }
 
   ngOnInit(): void {
-    this.operatorsService.getAll().then((data) => {
-      this.operators = data;
-    });
+    this.operators = this.operatorsService.getAll();
   }
 
   triggerNewOperator(): void{
     this.router.navigate(['private/fields/operators/new']);
   }
 
-  onEdit(row): void{
+  onEdit(row): void {
 
   }
 
