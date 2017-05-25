@@ -1,6 +1,8 @@
+import { AnnexGovernanceService } from 'app/services/annex-governance.service';
+import { AnnexOperatorsService } from 'app/services/annex-operators.service';
 import { ObservationsService } from 'app/services/observations.service';
-import { Severity } from './../../models/severity.model';
-import { Router } from '@angular/router';
+import { Severity } from 'app/models/severity.model';
+import { Router, ActivatedRoute } from '@angular/router';
 import { Operator } from 'app/models/operator.model';
 import { OperatorsService } from 'app/services/operators.service';
 import { ObserversService } from 'app/services/observers.service';
@@ -9,7 +11,6 @@ import { Government } from 'app/models/government.model';
 import { GovernmentsService } from 'app/services/governments.service';
 import { AnnexGovernance } from 'app/models/annex-governance.model';
 import { AnnexOperator } from 'app/models/annex-operator.model';
-import { SubCategoriesService } from 'app/services/sub-categories.service';
 import { Http } from '@angular/http';
 import { CountriesService } from 'app/services/countries.service';
 import { Country } from 'app/models/country.model';
@@ -41,12 +42,14 @@ export class ObservationDetailComponent implements OnInit {
 
   constructor(
     private countriesService: CountriesService,
-    private subCategoriesService: SubCategoriesService,
+    private annexOperatorsService: AnnexOperatorsService,
+    private annexGovernanceService: AnnexGovernanceService,
     private governmentsService: GovernmentsService,
     private observersService: ObserversService,
     private operatorsService: OperatorsService,
     private observationsService: ObservationsService,
     private router: Router,
+    private route: ActivatedRoute,
     private http: Http
   ) {
       this.dateOptions = new DatePickerOptions();
@@ -54,7 +57,7 @@ export class ObservationDetailComponent implements OnInit {
       this.governanceSelected = false;
   }
 
-  onTypeChange(event): void{
+  onTypeChange(event): void {
     this.type = event.target.value;
     this.governanceSelected = this.type === 'AnnexGovernance';
     if (this.selectedCountry) {
@@ -62,10 +65,12 @@ export class ObservationDetailComponent implements OnInit {
     }
   }
 
-  onCancel(): void{
-    this.router.navigate(['/private/observations']);
+  onCancel(): void {
+    // Without relativeTo, the navigation doesn't work properly
+    this.router.navigate(['..'], { relativeTo: this.route });
   }
-  onSubmit(formValues): void{
+
+  onSubmit(formValues): void {
     const formattedDate = formValues.publication_date.formatted;
     const valuesUpdated = formValues;
     delete valuesUpdated.publication_date;
@@ -76,7 +81,8 @@ export class ObservationDetailComponent implements OnInit {
         data => {
           alert('Observation created successfully!');
           this.loading = false;
-          this.router.navigate(['/private/observations']);
+          // Without relativeTo, the navigation doesn't work properly
+          this.router.navigate(['..'], { relativeTo: this.route });
         }
       ).catch(error => {
         const errorMessage = error.json().errors[0].title;
@@ -107,13 +113,13 @@ export class ObservationDetailComponent implements OnInit {
 
   loadSubcategories(countryId): void {
     if (this.governanceSelected) {
-      this.subCategoriesService.getAnnexGovernancesByCountry(countryId).then(
+      this.annexGovernanceService.getAnnexGovernancesByCountry(countryId).then(
         data => {
           this.annexGovernances = data;
         }
       );
     } else if(this.type === 'AnnexGovernance') {
-      this.subCategoriesService.getAnnexOperatorsByCountry(countryId).then(
+      this.annexOperatorsService.getAnnexOperatorsByCountry(countryId).then(
         data => {
           this.annexOperators = data;
         }

@@ -1,3 +1,16 @@
+import 'reflect-metadata';
+import { AnnexGovernanceService } from 'app/services/annex-governance.service';
+import { AnnexOperatorsService } from 'app/services/annex-operators.service';
+import { TableColumnCellDirective } from 'app/shared/table/directives/column/column-cell.directive';
+import { TableColumnDirective } from 'app/shared/table/directives/column/column.directive';
+import { TableComponent } from 'app/shared/table/table.component';
+import { DatepickerComponent } from 'app/shared/datepicker/datepicker.component';
+import { MyOTPComponent } from 'app/pages/my-otp/my-otp.component';
+import { OrganizationProfileComponent } from 'app/pages/my-otp/profile/organization-profile.component';
+import { EqualToValidatorDirective } from 'app/directives/equal-to.directive';
+import { EmailValidatorDirective } from 'app/directives/email.directive';
+import { NumberValidatorDirective } from 'app/directives/number.directive';
+import { ResponsiveService } from 'app/services/responsive.service';
 import { ObservationDetailEditComponent } from 'app/pages/observations/observation-detail-edit.component';
 import { AlreadyLoggedGuard } from 'app/services/already-logged.guard';
 import { IconComponent } from 'app/shared/icons/icon.component';
@@ -26,7 +39,6 @@ import { GovernmentListComponent } from 'app/pages/fields/governments/government
 import { OperatorsService } from 'app/services/operators.service';
 import { ObserversService } from 'app/services/observers.service';
 import { GovernmentsService } from 'app/services/governments.service';
-import { SubCategoriesService } from 'app/services/sub-categories.service';
 import { CategoryListComponent } from 'app/pages/fields/categories/category-list.component';
 import { HeaderComponent } from 'app/shared/header/header.component';
 import { NavigationComponent } from 'app/shared/navigation/navigation.component';
@@ -54,12 +66,10 @@ import { NgModule } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { JsonApiModule } from 'angular2-jsonapi';
 import { HttpModule, RequestOptions } from '@angular/http';
-import { CustomFormsModule } from 'ng2-validation';
 import { SpinnerModule } from 'angular2-spinner/dist';
-import { NgxDatatableModule } from '@swimlane/ngx-datatable';
 import { DatePickerModule } from 'ng2-datepicker';
-import { ResponsiveModule } from 'ng2-responsive';
 import { ObservationsService } from 'app/services/observations.service';
+import { MaxTabletDirective, MinTabletDirective } from 'app/directives/responsive.directive';
 
 
 @NgModule({
@@ -99,7 +109,18 @@ import { ObservationsService } from 'app/services/observations.service';
     AnnexOperatorListComponent,
     AnnexGovernanceDetailComponent,
     AnnexGovernanceListComponent,
-    IconComponent
+    IconComponent,
+    MaxTabletDirective,
+    MinTabletDirective,
+    NumberValidatorDirective,
+    EmailValidatorDirective,
+    EqualToValidatorDirective,
+    MyOTPComponent,
+    OrganizationProfileComponent,
+    DatepickerComponent,
+    TableComponent,
+    TableColumnDirective,
+    TableColumnCellDirective,
   ],
   imports: [
     JsonApiModule,
@@ -107,10 +128,7 @@ import { ObservationsService } from 'app/services/observations.service';
     FormsModule,
     HttpModule,
     AppRoutingModule,
-    CustomFormsModule,
     SpinnerModule,
-    NgxDatatableModule,
-    ResponsiveModule,
     DatePickerModule
   ],
   providers: [
@@ -122,12 +140,14 @@ import { ObservationsService } from 'app/services/observations.service';
     DatastoreService,
     UsersService,
     ObservationsService,
-    SubCategoriesService,
+    AnnexOperatorsService,
+    AnnexGovernanceService,
     ObserversService,
     OperatorsService,
     SpeciesService,
     LawsService,
     CategoriesService,
+    ResponsiveService,
     { provide: RequestOptions, useClass: OauthRequestOptions }
   ],
   bootstrap: [AppComponent]
