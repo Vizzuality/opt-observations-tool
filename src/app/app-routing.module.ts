@@ -1,3 +1,4 @@
+import { PageNotFoundComponent } from 'app/pages/page-not-found/page-not-found.component';
 import { ObservationDetailEditComponent } from 'app/pages/observations/observation-detail-edit.component';
 import { AlreadyLoggedGuard } from 'app/services/already-logged.guard';
 import { AnnexGovernanceDetailComponent } from 'app/pages/fields/subcategories/governance/annex-governance-detail.component';
@@ -33,6 +34,7 @@ import { UserDetailComponent } from 'app/pages/users/user-detail.component';
 import { CategoryListComponent } from 'app/pages/fields/categories/category-list.component';
 import { OrganizationProfileComponent } from 'app/pages/my-otp/profile/organization-profile.component';
 import { MyOTPComponent } from 'app/pages/my-otp/my-otp.component';
+import { ObservationsComponent } from 'app/pages/observations/observations.component';
 
 
 const observationsChildren = [
@@ -97,6 +99,7 @@ const routes: Routes = [
       // -------------OBSERVATIONS------------------
       {
         path: 'observations',
+        component: ObservationsComponent,
         children: observationsChildren
       },
       // ----------------USERS----------------------
@@ -222,6 +225,10 @@ const routes: Routes = [
         component: ProfileComponent
       }
     ]
+  },
+  {
+    path: '**',
+    component: PageNotFoundComponent
   }
 ];
 

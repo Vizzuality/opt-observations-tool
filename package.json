@@ -9,7 +9,7 @@
     "test": "ng test",
     "lint": "ng lint",
     "e2e": "ng e2e",
-    "prod-build": "ng build --prod --aot --extract-css",
+    "prod-build": "ng build --prod --aot --extract-css --base-href '/observations-tool'",
     "bundle-report": "webpack-bundle-analyzer dist/stats.json"
   },
   "private": true,
@@ -26,6 +26,7 @@
     "angular2-jsonapi": "^3.4.0",
     "angular2-spinner": "^1.0.10",
     "core-js": "^2.4.1",
+    "date-fns": "^1.28.5",
     "express": "^4.15.2",
     "foundation-sites": "^6.3.1",
     "leaflet": "^1.0.3",

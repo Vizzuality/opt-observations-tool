@@ -1,4 +1,7 @@
 import 'reflect-metadata';
+import { PageNotFoundComponent } from 'app/pages/page-not-found/page-not-found.component';
+import { LoaderComponent } from 'app/shared/loader/loader.component';
+import { ObservationsComponent } from 'app/pages/observations/observations.component';
 import { AnnexGovernanceService } from 'app/services/annex-governance.service';
 import { AnnexOperatorsService } from 'app/services/annex-operators.service';
 import { TableColumnCellDirective } from 'app/shared/table/directives/column/column-cell.directive';
@@ -75,7 +78,9 @@ import { MaxTabletDirective, MinTabletDirective } from 'app/directives/responsiv
 @NgModule({
   declarations: [
     AppComponent,
+    LoaderComponent,
     LoginComponent,
+    ObservationsComponent,
     ObservationListComponent,
     ObservationDetailComponent,
     ObservationDetailEditComponent,
@@ -121,6 +126,7 @@ import { MaxTabletDirective, MinTabletDirective } from 'app/directives/responsiv
     TableComponent,
     TableColumnDirective,
     TableColumnCellDirective,
+    PageNotFoundComponent,
   ],
   imports: [
     JsonApiModule,
