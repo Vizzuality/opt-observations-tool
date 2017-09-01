@@ -77,11 +77,12 @@ export class AuthService {
     }
 
     try {
-      const response = await this.http.get(`${environment.apiUrl}/users/current-user`)
+      const response = await this.http.get(`${environment.apiUrl}/users/current-user?include=user-permission`)
         .map(data => data.json())
+        .map(data => data.included)
         .toPromise();
 
-      this.userRole = response.included.length && response.included[0].attributes.user_role;
+      this.userRole = response.length && response[0].attributes['user-role'];
       this.triggerLoginStatus(!!response);
       return !!response;
     } catch (e) {

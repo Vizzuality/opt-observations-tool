@@ -1,10 +1,6 @@
 import { PageNotFoundComponent } from 'app/pages/page-not-found/page-not-found.component';
-import { ObservationDetailEditComponent } from 'app/pages/observations/observation-detail-edit.component';
 import { AlreadyLoggedGuard } from 'app/services/already-logged.guard';
-import { AnnexGovernanceDetailComponent } from 'app/pages/fields/subcategories/governance/annex-governance-detail.component';
-import { AnnexGovernanceListComponent } from 'app/pages/fields/subcategories/governance/annex-governance-list.component';
-import { AnnexOperatorListComponent } from 'app/pages/fields/subcategories/operators/annex-operator-list.component';
-import { AnnexOperatorDetailComponent } from 'app/pages/fields/subcategories/operators/annex-operator-detail.component';
+import { SubcategoryListComponent } from 'app/pages/fields/subcategories/subcategory-list.component';
 import { SubcategoriesComponent } from 'app/pages/fields/subcategories/subcategories.component';
 import { CategoryDetailComponent } from 'app/pages/fields/categories/category-detail.component';
 import { OperatorListComponent } from 'app/pages/fields/operators/operator-list.component';
@@ -13,10 +9,8 @@ import { CountryListComponent } from 'app/pages/fields/countries/country-list.co
 import { CountryDetailComponent } from 'app/pages/fields/countries/country-detail.component';
 import { SpeciesListComponent } from 'app/pages/fields/species/species-list.component';
 import { ObserverListComponent } from 'app/pages/fields/observers/observer-list.component';
-import { LawListComponent } from 'app/pages/fields/laws/law-list.component';
 import { SpeciesDetailComponent } from 'app/pages/fields/species/species-detail.component';
 import { ObserverDetailComponent } from 'app/pages/fields/observers/observer-detail.component';
-import { LawDetailComponent } from 'app/pages/fields/laws/law-detail.component';
 import { GovernmentDetailComponent } from 'app/pages/fields/governments/government-detail.component';
 import { GovernmentListComponent } from 'app/pages/fields/governments/government-list.component';
 import { ProfileComponent } from 'app/pages/profile/profile.component';
@@ -44,11 +38,7 @@ const observationsChildren = [
     redirectTo: 'operators'
   },
   {
-    path: 'operators',
-    component: ObservationListComponent
-  },
-  {
-    path: 'governance',
+    path: '',
     component: ObservationListComponent
   },
   {
@@ -57,7 +47,7 @@ const observationsChildren = [
   },
   {
     path: 'edit/:id',
-    component: ObservationDetailEditComponent
+    component: ObservationDetailComponent
   },
 ];
 
@@ -137,32 +127,32 @@ const routes: Routes = [
           // --------------SUB-CATEGORIES--------------
           {
             path: 'subcategories',
-            component: SubcategoriesComponent,
-            children: [
-              {
-                path: '',
-                pathMatch: 'full',
-                redirectTo: 'operators'
-              },
-              // ----------OPERATORS----------
-              {
-                path: 'operators',
-                component: AnnexOperatorListComponent
-              },
-              {
-                path: 'operators/new',
-                component: AnnexOperatorDetailComponent
-              },
-              // ----------GOVERNANCE----------
-              {
-                path: 'governance',
-                component: AnnexGovernanceListComponent
-              },
-              {
-                path: 'governance/new',
-                component: AnnexGovernanceDetailComponent
-              },
-            ]
+            component: SubcategoryListComponent,
+            // children: [
+            //   {
+            //     path: '',
+            //     pathMatch: 'full',
+            //     redirectTo: 'operators'
+            //   },
+            //   // ----------OPERATORS----------
+            //   {
+            //     path: 'operators',
+            //     component: AnnexOperatorListComponent
+            //   },
+            //   {
+            //     path: 'operators/new',
+            //     component: AnnexOperatorDetailComponent
+            //   },
+            //   // ----------GOVERNANCE----------
+            //   {
+            //     path: 'governance',
+            //     component: AnnexGovernanceListComponent
+            //   },
+            //   {
+            //     path: 'governance/new',
+            //     component: AnnexGovernanceDetailComponent
+            //   },
+            // ]
           },
           // --------------GOVERNMENTS-----------------
           {
@@ -172,15 +162,6 @@ const routes: Routes = [
           {
             path: 'governments/new',
             component: GovernmentDetailComponent
-          },
-          // --------------LAWS-----------------
-          {
-            path: 'laws',
-            component: LawListComponent
-          },
-          {
-            path: 'laws/new',
-            component: LawDetailComponent
           },
           // --------------OBSERVERS-----------------
           {

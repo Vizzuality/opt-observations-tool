@@ -8,8 +8,7 @@ import { Comment } from 'app/models/comment.model';
 import { Observer } from 'app/models/observer.model';
 import { Operator } from 'app/models/operator.model';
 import { Government } from 'app/models/government.model';
-import { AnnexOperator } from 'app/models/annex-operator.model';
-import { AnnexGovernance } from 'app/models/annex-governance.model';
+import { Subcategory } from 'app/models/subcategory.model';
 import { Severity } from 'app/models/severity.model';
 
 @JsonApiModelConfig({
@@ -17,20 +16,19 @@ import { Severity } from 'app/models/severity.model';
 })
 export class Observation extends JsonApiModel {
 
-  @Attribute() observation_type: string;
-  @Attribute() publication_date: Date;
+  @Attribute() 'observation-type': string;
+  @Attribute() 'publication-date': Date;
   @Attribute() pv?: string;
-  @Attribute() is_active?: boolean;
+  @Attribute() 'is-active'?: boolean;
   @Attribute() details?: string;
   @Attribute() evidence?: string;
-  @Attribute() concern_opinion?: string;
-  @Attribute() litigation_status?: string;
-  @Attribute() lat?: string;
-  @Attribute() lng?: string;
+  @Attribute() 'concern-opinion'?: string;
+  @Attribute() 'litigation-status'?: string;
+  @Attribute() lat?: number;
+  @Attribute() lng?: number;
 
   @BelongsTo() country: Country;
-  @BelongsTo() annex_operator?: AnnexOperator;
-  @BelongsTo() annex_governance?: AnnexGovernance;
+  @BelongsTo() subcategory?: Subcategory;
   @BelongsTo() severity: Severity;
   @BelongsTo() user?: User;
   @BelongsTo() observer?: Observer;

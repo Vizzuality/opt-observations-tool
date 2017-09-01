@@ -1,9 +1,12 @@
 import 'reflect-metadata';
+import { ModalComponent } from 'app/shared/modal/modal.component';
+import { FiltersComponent } from 'app/shared/filters/filters.component';
+import { FilterDirective } from 'app/shared/filters/directives/filter.directive';
+import { NavigationItemDirective } from 'app/shared/navigation/directives/item/item.directive';
 import { PageNotFoundComponent } from 'app/pages/page-not-found/page-not-found.component';
 import { LoaderComponent } from 'app/shared/loader/loader.component';
 import { ObservationsComponent } from 'app/pages/observations/observations.component';
-import { AnnexGovernanceService } from 'app/services/annex-governance.service';
-import { AnnexOperatorsService } from 'app/services/annex-operators.service';
+import { SubcategoriesService } from 'app/services/subcategories.service';
 import { TableColumnCellDirective } from 'app/shared/table/directives/column/column-cell.directive';
 import { TableColumnDirective } from 'app/shared/table/directives/column/column.directive';
 import { TableComponent } from 'app/shared/table/table.component';
@@ -14,13 +17,9 @@ import { EqualToValidatorDirective } from 'app/directives/equal-to.directive';
 import { EmailValidatorDirective } from 'app/directives/email.directive';
 import { NumberValidatorDirective } from 'app/directives/number.directive';
 import { ResponsiveService } from 'app/services/responsive.service';
-import { ObservationDetailEditComponent } from 'app/pages/observations/observation-detail-edit.component';
 import { AlreadyLoggedGuard } from 'app/services/already-logged.guard';
 import { IconComponent } from 'app/shared/icons/icon.component';
-import { AnnexGovernanceListComponent } from 'app/pages/fields/subcategories/governance/annex-governance-list.component';
-import { AnnexGovernanceDetailComponent } from 'app/pages/fields/subcategories/governance/annex-governance-detail.component';
-import { AnnexOperatorListComponent } from 'app/pages/fields/subcategories/operators/annex-operator-list.component';
-import { AnnexOperatorDetailComponent } from 'app/pages/fields/subcategories/operators/annex-operator-detail.component';
+import { SubcategoryListComponent } from 'app/pages/fields/subcategories/subcategory-list.component';
 import { SubcategoriesComponent } from 'app/pages/fields/subcategories/subcategories.component';
 import { CategoriesService } from 'app/services/categories.service';
 import { CategoryDetailComponent } from 'app/pages/fields/categories/category-detail.component';
@@ -31,12 +30,9 @@ import { CountryDetailComponent } from 'app/pages/fields/countries/country-detai
 import { SpeciesListComponent } from 'app/pages/fields/species/species-list.component';
 import { SpeciesService } from 'app/services/species.service';
 import { ObserverListComponent } from 'app/pages/fields/observers/observer-list.component';
-import { LawsService } from 'app/services/laws.service';
-import { LawListComponent } from 'app/pages/fields/laws/law-list.component';
 import { ActionBarComponent } from 'app/shared/action-bar/action-bar.component';
 import { SpeciesDetailComponent } from 'app/pages/fields/species/species-detail.component';
 import { ObserverDetailComponent } from 'app/pages/fields/observers/observer-detail.component';
-import { LawDetailComponent } from 'app/pages/fields/laws/law-detail.component';
 import { GovernmentDetailComponent } from 'app/pages/fields/governments/government-detail.component';
 import { GovernmentListComponent } from 'app/pages/fields/governments/government-list.component';
 import { OperatorsService } from 'app/services/operators.service';
@@ -83,7 +79,6 @@ import { MaxTabletDirective, MinTabletDirective } from 'app/directives/responsiv
     ObservationsComponent,
     ObservationListComponent,
     ObservationDetailComponent,
-    ObservationDetailEditComponent,
     RegisterComponent,
     BottombarComponent,
     UserListComponent,
@@ -93,11 +88,10 @@ import { MaxTabletDirective, MinTabletDirective } from 'app/directives/responsiv
     FieldDetailComponent,
     TabsComponent,
     NavigationComponent,
+    NavigationItemDirective,
     HeaderComponent,
     GovernmentListComponent,
     GovernmentDetailComponent,
-    LawDetailComponent,
-    LawListComponent,
     ObserverDetailComponent,
     ObserverListComponent,
     SpeciesDetailComponent,
@@ -109,11 +103,8 @@ import { MaxTabletDirective, MinTabletDirective } from 'app/directives/responsiv
     CountryListComponent,
     OperatorDetailComponent,
     OperatorListComponent,
+    SubcategoryListComponent,
     SubcategoriesComponent,
-    AnnexOperatorDetailComponent,
-    AnnexOperatorListComponent,
-    AnnexGovernanceDetailComponent,
-    AnnexGovernanceListComponent,
     IconComponent,
     MaxTabletDirective,
     MinTabletDirective,
@@ -127,6 +118,9 @@ import { MaxTabletDirective, MinTabletDirective } from 'app/directives/responsiv
     TableColumnDirective,
     TableColumnCellDirective,
     PageNotFoundComponent,
+    FiltersComponent,
+    FilterDirective,
+    ModalComponent,
   ],
   imports: [
     JsonApiModule,
@@ -146,12 +140,10 @@ import { MaxTabletDirective, MinTabletDirective } from 'app/directives/responsiv
     DatastoreService,
     UsersService,
     ObservationsService,
-    AnnexOperatorsService,
-    AnnexGovernanceService,
+    SubcategoriesService,
     ObserversService,
     OperatorsService,
     SpeciesService,
-    LawsService,
     CategoriesService,
     ResponsiveService,
     { provide: RequestOptions, useClass: OauthRequestOptions }

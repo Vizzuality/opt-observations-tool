@@ -1,16 +1,14 @@
 import { UserPermission } from 'app/models/user_permission.model';
 import { Document } from 'app/models/document.model';
 import { TokenService } from 'app/services/token.service';
-import { AnnexOperator } from 'app/models/annex-operator.model';
-import { AnnexGovernance } from 'app/models/annex-governance.model';
 import { User } from 'app/models/user.model';
 import { Species } from 'app/models/species.model';
 import { Operator } from 'app/models/operator.model';
 import { Observer } from 'app/models/observer.model';
 import { Government } from 'app/models/government.model';
 import { Comment } from 'app/models/comment.model';
-import { Law } from 'app/models/law.model';
 import { Category } from 'app/models/category.model';
+import { Subcategory } from 'app/models/subcategory.model';
 import { Severity } from 'app/models/severity.model';
 import { Country } from 'app/models/country.model';
 import { environment } from 'environments/environment';
@@ -27,15 +25,13 @@ import { Observation } from 'app/models/observation.model';
     countries: Country,
     severities: Severity,
     categories: Category,
-    laws: Law,
     comments: Comment,
     governments: Government,
     observers: Observer,
     operators: Operator,
     species: Species,
     users: User,
-    annex_governances: AnnexGovernance,
-    annex_operators: AnnexOperator,
+    subcategories: Subcategory,
     documents: Document,
     user_permissions: UserPermission
   }
