@@ -1,3 +1,4 @@
+import { Fmu } from 'app/models/fmu.model';
 import { JsonApiModel, JsonApiModelConfig, Attribute, HasMany, BelongsTo } from 'angular2-jsonapi';
 import { Country } from 'app/models/country.model';
 import { Species } from 'app/models/species.model';
@@ -26,12 +27,17 @@ export class Observation extends JsonApiModel {
   @Attribute() 'litigation-status'?: string;
   @Attribute() lat?: number;
   @Attribute() lng?: number;
+  @Attribute() 'created-at'?: Date;
+  @Attribute() 'updated-at'?: Date;
+  @Attribute() 'actions-taken'?: string;
 
+  @BelongsTo() fmu?: Fmu;
   @BelongsTo() country: Country;
   @BelongsTo() subcategory?: Subcategory;
   @BelongsTo() severity: Severity;
   @BelongsTo() user?: User;
-  @BelongsTo() observer?: Observer;
+  @BelongsTo() 'modified-user'?: User;
+  @HasMany() observers?: Observer[]; // Should be a BelongsTo but not working with array
   @BelongsTo() operator?: Operator;
   @BelongsTo() government?: Government;
 

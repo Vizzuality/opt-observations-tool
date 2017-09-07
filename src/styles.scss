@@ -4,9 +4,6 @@
 // FOUNDATION 6
 @import '~foundation-sites/scss/foundation';
 
-// LEAFLET
-@import '~leaflet/dist/leaflet.css';
-
 @include foundation-global-styles;
 @include foundation-grid;
 @include foundation-flex-grid;
@@ -59,3 +56,4 @@
 @import 'src/styles/components/form';
 @import 'src/styles/components/form-group';
 @import 'src/styles/components/wri-table';
+@import 'src/styles/components/ss-multiselect-dropdown';

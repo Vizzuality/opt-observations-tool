@@ -1,3 +1,5 @@
+import { Fmu } from 'app/models/fmu.model';
+import { AuthService } from 'app/services/auth.service';
 import { Observation } from './../../models/observation.model';
 import { DatastoreService } from 'app/services/datastore.service';
 import { SubcategoriesService } from 'app/services/subcategories.service';
@@ -16,6 +18,8 @@ import { CountriesService } from 'app/services/countries.service';
 import { Country } from 'app/models/country.model';
 import { Component } from '@angular/core';
 import * as L from 'leaflet';
+import { IMultiSelectOption, IMultiSelectSettings } from 'angular-2-dropdown-multiselect';
+import { GeoJsonObject } from 'geojson';
 
 // Fix issues witht the icons of the Leaflet's markers
 const DefaultIcon = L.icon({
@@ -39,9 +43,12 @@ export class ObservationDetailComponent {
   countries: Country[] = [];
   subcategories: Subcategory[] = [];
   severities: Severity[] = [];
-  operators: Operator[] = [];
+  operators: Operator[] = []; // Ordered by name
   governments: Government[] = [];
+  observers: Observer[] = []; // Ordered by name
+  fmus: Fmu[] = [];
 
+  // Map related
   map: L.Map;
   mapOptions = {
     center: [10, 0],
@@ -54,7 +61,12 @@ export class ObservationDetailComponent {
       })
     ]
   };
-  mapLayers = [];
+  _mapMarker = null; // Layer with the marker
+  _mapFmu = null; // Layer with the FMU
+
+  // Monitors multi-select related
+  additionalObserversOptions: IMultiSelectOption[] = [];
+  _additionalObserversSelection: number[] = [];
 
   // User selection
   _type: string = null;
@@ -68,7 +80,9 @@ export class ObservationDetailComponent {
   _pv: string; // Only for type operator
   _latitude: number; // Only for type operator
   _longitude: number; // Only for type operator
+  _fmu: Fmu = null; // Only for type operator
   _government: Government = null; // Only for type government
+  _actions: string;
 
   get type() { return this.observation ? this.observation['observation-type'] : this._type; }
   set type(type) {
@@ -86,6 +100,8 @@ export class ObservationDetailComponent {
       this.pv = null;
       this.government = null;
       this.publicationDate = null;
+      this._additionalObserversSelection = [];
+      this.actions = null;
     }
 
     // When the type change we load the necessary additional information
@@ -113,7 +129,7 @@ export class ObservationDetailComponent {
       .catch((err) => console.error(err)); // TODO: visual feedback
 
     if (type === 'operator') {
-      this.operatorsService.getAll()
+      this.operatorsService.getAll({ sort: 'name' })
         .then(operators => this.operators = operators)
         .then(() => {
           // If we're editing an observation, the object Operator of the observation won't
@@ -154,6 +170,53 @@ export class ObservationDetailComponent {
     } else {
       this._operator = operator;
     }
+
+    if (operator) {
+      this.operatorsService.getById(operator.id, { include: 'fmus' })
+        .then((op) => {
+          this.fmus = op.fmus ? op.fmus : [];
+
+          // If we can restore the FMU of the observation, we do it,
+          // otherwise we just reset the fmu each time the user
+          // update the operator
+          if (this.observation && this.observation.operator.id !== operator.id && this.observation.fmu) {
+            this.fmu = this.operator.fmus.find(fmu => fmu.id === this.observation.fmu.id);
+          } else {
+            this.fmu = null;
+          }
+        })
+        .catch(err => console.error(err)); // TODO: visual feedback
+    }
+  }
+
+  get fmu() { return this.observation ? this.observation.fmu : this._fmu; }
+  set fmu(fmu) {
+    // We create the map layer for the FMU and store it
+    // NOTE: we can't generate it in the mapLayers getter
+    // because:
+    //  1. It's not performant
+    //  2. The references get lost with the event handlers
+    //     and we're enable to attach a click event
+    if (fmu && fmu.geojson) {
+      const layer = L.geoJSON(<GeoJsonObject>fmu.geojson);
+      this._mapFmu = layer;
+
+      // We zoom onto the FMU in two cases:
+      //  1. There wasn't any FMU displayed before (and now
+      //     there is one)
+      //  2. The user changed the FMU
+      if (((!this._fmu || !this._fmu.geojson) || this.fmu.id !== fmu.id) && this.map) {
+        this.map.fitBounds(layer.getBounds());
+      }
+    } else {
+      this._mapFmu = null;
+    }
+
+    if (this.observation) {
+      this.observation.fmu = fmu;
+    } else {
+      this._fmu = fmu;
+    }
   }
 
   get subcategory() { return this.observation ? this.observation.subcategory : this._subcategory; }
@@ -191,11 +254,11 @@ export class ObservationDetailComponent {
       this._latitude = latitude;
     }
 
-    // We add a marker to the map if possible
-    if (latitude && this.longitude) {
-      this.mapLayers = [L.marker([latitude, this.longitude])];
+    // We create a layer with the marker
+    if (this.latitude && this.longitude) {
+      this._mapMarker = L.marker([this.latitude, this.longitude]);
     } else {
-      this.mapLayers = [];
+      this._mapMarker = null;
     }
   }
 
@@ -207,11 +270,11 @@ export class ObservationDetailComponent {
       this._longitude = longitude;
     }
 
-    // We add a marker to the map if possible
-    if (longitude && this.latitude) {
-      this.mapLayers = [L.marker([this.latitude, longitude])];
+    // We create a layer with the marker
+    if (this.latitude && this.longitude) {
+      this._mapMarker = L.marker([this.latitude, this.longitude]);
     } else {
-      this.mapLayers = [];
+      this._mapMarker = null;
     }
   }
 
@@ -260,7 +323,32 @@ export class ObservationDetailComponent {
     }
   }
 
+  get actions() { return this.observation ? this.observation['actions-taken'] : this._actions; }
+  set actions(actions) {
+    if (this.observation) {
+      this.observation['actions-taken'] = actions;
+    } else {
+      this._actions = actions;
+    }
+  }
+
+  get mapLayers(): any[] {
+    const layers = [];
+
+    if (this._mapFmu) {
+      layers.push(this._mapFmu);
+    }
+
+    if (this._mapMarker) {
+      layers.push(this._mapMarker);
+    }
+
+    return layers;
+  }
+
   constructor(
+    private authService: AuthService,
+    private observersService: ObserversService,
     private observationsService: ObservationsService,
     private countriesService: CountriesService,
     private subcategoriesService: SubcategoriesService,
@@ -269,22 +357,49 @@ export class ObservationDetailComponent {
     private router: Router,
     private route: ActivatedRoute
   ) {
+    this.observersService.getAll({ sort: 'name' })
+      .then((observers) => {
+        this.observers = observers;
+
+        // We update the list of options for the additional observers field
+        this.additionalObserversOptions = observers
+          .filter(observer => observer.id !== this.authService.userObserverId)
+          .map((observer, index) => ({ id: index, name: observer.name }));
+      })
+      .catch((err) => console.error(err)); // TODO: visual feedback
+
     // If we edit an existing observation, we have a bit of
     // code to execute
     if (this.route.snapshot.params.id) {
       this.loading = true;
-      this.observationsService.getById(this.route.snapshot.params.id, { include: 'country,operator,subcategory,severity'})
-        .then((observation) => {
+      this.observationsService.getById(this.route.snapshot.params.id, {
+        include: 'country,operator,subcategory,severity,observers,government,modified-user'
+      }).then((observation) => {
           this.observation = observation;
 
           // FIXME: angular2-jsonapi should return a Date object but instead return
           // a string for some reason
           this.observation['publication-date'] = new Date(this.observation['publication-date']);
+          this.observation['created-at'] = new Date(this.observation['created-at']);
+          this.observation['updated-at'] = new Date(this.observation['updated-at']);
+
+          // We set the list of additional observer ids for the additional observers field
+          const additionalObserversIds = this.observation.observers.map(o => o.id); // TODO: remove user observer
+          this._additionalObserversSelection = this.observers.map((observer, index) => {
+            return additionalObserversIds.indexOf(observer.id) !== -1 ? index : null;
+          }).filter(v => v !== null);
 
           // We force some of the attributes to execute the setters
           this.type = this.observation['observation-type'];
+          this.latitude = this.observation.lat;
+          this.longitude = this.observation.lng;
         })
-        .catch((err) => console.error(err)) // TODO: visual feedback
+        .catch(() => {
+          // The only reason the request should fail is that the user
+          // don't have the permission to edit this observation
+          // In such a case, we redirect them to the 404 page
+          this.router.navigate(['/', '404']);
+        })
         .then(() => this.loading = false);
     }
   }
@@ -307,6 +422,17 @@ export class ObservationDetailComponent {
     this.longitude = e.latlng.lng;
   }
 
+  /**
+   * Event handler executed when the user changes the list of additional observers
+   * NOTE: we can't use a getter/setter model as we do with the other fields because
+   * the library doesn't support it:
+   * https://github.com/softsimon/angular-2-dropdown-multiselect/issues/273
+   * @param {number[]} options
+   */
+  onChangeAdditionalObserversOptions(options: number[]) {
+    this._additionalObserversSelection = options;
+  }
+
   onCancel(): void {
     // Without relativeTo, the navigation doesn't work properly
     this.router.navigate([this.observation ? '../..' : '..'], { relativeTo: this.route });
@@ -321,11 +447,12 @@ export class ObservationDetailComponent {
       const model: any = {
         'observation-type': this.type,
         'publication-date': new Date(),
-        'is-active': true,
         country: this.country,
         subcategory: this.subcategory,
         details: this.details,
-        severity: this.severity
+        severity: this.severity,
+        observers: this.observers.filter((observer, index) => this._additionalObserversSelection.indexOf(index) !== -1),
+        'actions-taken': this.actions
       };
 
       if (this.type === 'operator') {
@@ -334,6 +461,7 @@ export class ObservationDetailComponent {
         model.lng = this.longitude;
         model['concern-opinion'] = this.opinion;
         model.pv = this.pv;
+        model.fmu = this.fmu;
       } else {
         model.government = this.government;
       }

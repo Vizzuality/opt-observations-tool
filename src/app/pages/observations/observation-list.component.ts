@@ -57,10 +57,10 @@ export class ObservationListComponent extends TableFilterBehavior {
   }
 
   onDelete(row): void {
-    if(confirm(`Are you sure to delete the observation with details: ${row.details}?`)) {
+    if (confirm(`Are you sure you want to delete the observation?`)) {
       this.service.deleteObservationWithId(row.id).then(
         data => {
-          alert(data.messages[0].title);
+          alert('The observation has been deleted.');
           this.loadData();
         });
     }
@@ -88,6 +88,6 @@ export class ObservationListComponent extends TableFilterBehavior {
 
     // If the observation is not active, then only the person
     // who edited it can edit or remove it
-    return observation.user.id === this.authService.userId;
+    return observation.user && observation.user.id === this.authService.userId;
   }
 }
