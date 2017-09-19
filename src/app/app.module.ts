@@ -1,4 +1,5 @@
 import 'reflect-metadata';
+import { ObservationReportsService } from 'app/services/observation-reports.service';
 import { ModalComponent } from 'app/shared/modal/modal.component';
 import { FiltersComponent } from 'app/shared/filters/filters.component';
 import { FilterDirective } from 'app/shared/filters/directives/filter.directive';
@@ -30,6 +31,8 @@ import { CountryDetailComponent } from 'app/pages/fields/countries/country-detai
 import { SpeciesListComponent } from 'app/pages/fields/species/species-list.component';
 import { SpeciesService } from 'app/services/species.service';
 import { ObserverListComponent } from 'app/pages/fields/observers/observer-list.component';
+import { WebWorkerService } from 'app/services/webworker.service';
+import { Base64FileInputDirective } from 'app/directives/base64-file-input.directive';
 import { ActionBarComponent } from 'app/shared/action-bar/action-bar.component';
 import { SpeciesDetailComponent } from 'app/pages/fields/species/species-detail.component';
 import { ObserverDetailComponent } from 'app/pages/fields/observers/observer-detail.component';
@@ -122,6 +125,7 @@ import { MultiselectDropdownModule } from 'angular-2-dropdown-multiselect';
     FiltersComponent,
     FilterDirective,
     ModalComponent,
+    Base64FileInputDirective
   ],
   imports: [
     JsonApiModule,
@@ -148,7 +152,9 @@ import { MultiselectDropdownModule } from 'angular-2-dropdown-multiselect';
     OperatorsService,
     SpeciesService,
     CategoriesService,
+    ObservationReportsService,
     ResponsiveService,
+    WebWorkerService,
     { provide: RequestOptions, useClass: OauthRequestOptions }
   ],
   bootstrap: [AppComponent]
