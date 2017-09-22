@@ -44,6 +44,7 @@
     font-size: $font-size-default;
     color: $grey-2;
     border-spacing: 0;
+    border-collapse: separate;
 
     @media screen and (min-width: $break-tablet) {
       padding-bottom: 15px;
@@ -205,7 +206,8 @@
         }
       }
 
-      /deep/ button.action {
+      /deep/ button.action,
+      /deep/ a.action {
         margin-right: 12px;
         cursor: pointer;
 

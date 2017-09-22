@@ -1,3 +1,4 @@
+import { Observation } from 'app/models/observation.model';
 import { User } from 'app/models/user.model';
 import { JsonApiModel, JsonApiModelConfig, Attribute, BelongsTo, HasMany } from 'angular2-jsonapi';
 
