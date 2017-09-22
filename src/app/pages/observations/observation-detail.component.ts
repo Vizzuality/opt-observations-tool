@@ -1,4 +1,7 @@
 import cloneDeep from 'lodash/cloneDeep';
+import EXIF from 'exif-js';
+import { Law } from 'app/models/law.model';
+import { LawsService } from 'app/services/laws.service';
 import { ObservationDocument } from 'app/models/observation_document';
 import { ObservationReport } from 'app/models/observation_report';
 import { Fmu } from 'app/models/fmu.model';
@@ -48,7 +51,7 @@ export class ObservationDetailComponent {
   countries: Country[] = [];
   subcategories: Subcategory[] = [];
   severities: Severity[] = [];
-  operators: Operator[] = []; // Ordered by name
+  operators: Operator[] = []; // Ordered by name, filtered by country
   governments: Government[] = [];
   observers: Observer[] = []; // Ordered by name
   fmus: Fmu[] = [];
@@ -61,6 +64,7 @@ export class ObservationDetailComponent {
     'Logging company', 'Artisanal', 'Community forest', 'Estate',
     'Industrial agriculture', 'Mining company', 'Sawmill', 'Other', 'Unknown'
   ];
+  laws: Law[] = []; // Filtered by country and subcategory
 
   // Map related
   map: L.Map;
@@ -92,6 +96,7 @@ export class ObservationDetailComponent {
   operator: Operator = this.datastoreService.createRecord(Operator, { 'operator-type': null });
   _operatorChoice: Operator = null; // Only for type operator, chose between the options
   _opinion: string; // Only for type operator
+  _litigationStatus: string; // Only for type operator
   _pv: string; // Only for type operator
   _latitude: number; // Only for type operator
   _longitude: number; // Only for type operator
@@ -102,6 +107,7 @@ export class ObservationDetailComponent {
   report: ObservationReport = this.datastoreService.createRecord(ObservationReport, {});
   // Report choosed between options
   _reportChoice: ObservationReport = null;
+  law: Law = null; // Only for type operator
 
   get type() { return this.observation ? this.observation['observation-type'] : this._type; }
   set type(type) {
@@ -135,7 +141,7 @@ export class ObservationDetailComponent {
         }
       });
 
-    this.subcategoriesService.getByType(<'operator'|'government'>type, { include: 'severities' })
+    this.subcategoriesService.getByType(<'operator'|'government'>type, { include: 'severities,category' })
       .then(subcategories => this.subcategories = subcategories)
       .then(() => {
           // If we're editing an observation, the object Subcategory of the observation won't
@@ -146,20 +152,6 @@ export class ObservationDetailComponent {
           }
         })
       .catch((err) => console.error(err)); // TODO: visual feedback
-
-    if (type === 'operator') {
-      this.operatorsService.getAll({ sort: 'name' })
-        .then(operators => this.operators = operators)
-        .then(() => {
-          // If we're editing an observation, the object Operator of the observation won't
-          // match any of the objects of this.operators, so we search for the "same" model
-          // and set it
-          if (this.observation) {
-            this.operatorChoice = this.operators.find((operator) => operator.id === this.observation.operator.id);
-          }
-        })
-        .catch((err) => console.error(err)); // TODO: visual feedback
-    }
   }
 
   get country() { return this.observation ? this.observation.country : this._country; }
@@ -178,6 +170,44 @@ export class ObservationDetailComponent {
         this.government = this.governments.find(government => government.id === this.observation.government.id);
       } else {
         this.government = null;
+      }
+    } else {
+      // We update the list of operators
+      if (country) {
+        this.operatorsService.getAll({ sort: 'name', filter: { country: this.country.id } })
+          .then(operators => this.operators = operators)
+          .then(() => {
+            // If we're editing an observation, the object Operator of the observation won't
+            // match any of the objects of this.operators, so we search for the "same" model
+            // and set it
+            if (this.observation && this.observation.country === country) {
+              this.operatorChoice = this.operators.find((operator) => operator.id === this.observation.operator.id);
+            } else {
+              this.operatorChoice = null;
+            }
+          })
+          .catch((err) => console.error(err)); // TODO: visual feedback
+      }
+
+      // We update the list of laws
+      if (country && this.subcategory) {
+        this.lawsService.getAll({ filter: { country: country.id, subcategory: this.subcategory.id } })
+          .then(laws => this.laws = laws)
+          .then(() => {
+            // If we're editing an observation, the object Law of the observation won't
+            // match any of the objects of this.laws, so we search for the "same" model
+            // and set it
+            if (this.observation && this.observation.country === country
+              && this.observation.subcategory === this.subcategory) {
+              this.law = this.laws.find(law => law.id === this.observation.law.id);
+            } else {
+              this.law = null;
+            }
+          })
+          .catch(err => console.error(err)); // TODO: visual feedback
+      } else {
+        this.laws = [];
+        this.law = null;
       }
     }
   }
@@ -284,6 +314,27 @@ export class ObservationDetailComponent {
     } else {
       this.severity = null;
     }
+
+    // We update the list of laws
+    if (this.type === 'operator' && subcategory && this.country) {
+      this.lawsService.getAll({ filter: { country: this.country.id, subcategory: subcategory.id } })
+        .then(laws => this.laws = laws)
+        .then(() => {
+          // If we're editing an observation, the object Law of the observation won't
+          // match any of the objects of this.laws, so we search for the "same" model
+          // and set it
+          if (this.observation && this.observation.country === this.country
+            && this.observation.subcategory === subcategory) {
+            this.law = this.laws.find(law => law.id === this.observation.law.id);
+          } else {
+            this.law = null;
+          }
+        })
+        .catch(err => console.error(err)); // TODO: visual feedback
+    } else {
+      this.laws = [];
+      this.law = null;
+    }
   }
 
   get severity() { return this.observation ? this.observation.severity : this._severity; }
@@ -342,6 +393,15 @@ export class ObservationDetailComponent {
       this.observation['concern-opinion'] = opinion;
     } else {
       this._opinion = opinion;
+    }
+  }
+
+  get litigationStatus() { return this.observation ? this.observation['litigation-status'] : this._litigationStatus; }
+  set litigationStatus(litigationStatus) {
+    if (this.observation) {
+      this.observation['litigation-status'] = litigationStatus;
+    } else {
+      this._litigationStatus = litigationStatus;
     }
   }
 
@@ -432,6 +492,7 @@ export class ObservationDetailComponent {
     private countriesService: CountriesService,
     private subcategoriesService: SubcategoriesService,
     private operatorsService: OperatorsService,
+    private lawsService: LawsService,
     private datastoreService: DatastoreService,
     private router: Router,
     private route: ActivatedRoute
@@ -468,7 +529,7 @@ export class ObservationDetailComponent {
       this.loading = true;
 
       this.observationsService.getById(this.route.snapshot.params.id, {
-        include: 'country,operator,subcategory,severity,observers,government,modified-user,fmu,observation-report'
+        include: 'country,operator,subcategory,severity,observers,government,modified-user,fmu,observation-report,law'
       }).then((observation) => {
           this.observation = observation;
 
@@ -525,6 +586,29 @@ export class ObservationDetailComponent {
   onClickMap(e: any) {
     this.latitude = e.latlng.lat;
     this.longitude = e.latlng.lng;
+  }
+
+  onChangePhoto(e: Event) {
+    const photo = (<HTMLInputElement>e.target).files[0];
+    const self = this;
+    EXIF.getData(photo, function () {
+      // We get the coordinated in minutes, seconds
+      const minLatitude: any[] = EXIF.getTag(this, 'GPSLatitude');
+      const minLongitude: any[] = EXIF.getTag(this, 'GPSLongitude');
+
+      // We determine in for which hemisphere the coordinates are for
+      const latitudeRef = EXIF.getTag(this, 'GPSLatitudeRef') || 'N';
+      const longitudeRef = EXIF.getTag(this, 'GPSLongitudeRef') || 'W';
+
+      if (!minLatitude || !minLongitude) {
+        alert('The image can\'t be georeferenced, try another one.');
+        return;
+      }
+
+      // We convert them to decimal degrees
+      self.latitude = (latitudeRef === 'N' ? 1 : -1) * self.convertMinutesToDegrees(minLatitude);
+      self.longitude = (longitudeRef === 'E' ? 1 : -1) * self.convertMinutesToDegrees(minLongitude);
+    });
   }
 
   /**
@@ -587,6 +671,17 @@ export class ObservationDetailComponent {
   onCancel(): void {
     // Without relativeTo, the navigation doesn't work properly
     this.router.navigate([this.observation ? '../..' : '..'], { relativeTo: this.route });
+  }
+
+  /**
+   * Convert a coordinate from minutes, seconds to decimal
+   * @param {number[]} coordinate
+   * @return {number}
+   */
+  convertMinutesToDegrees(coordinate: number[]) {
+    return coordinate
+      .map((value, index) => value / Math.pow(60, index))
+      .reduce((res, n) => res + n);
   }
 
   /**
@@ -686,6 +781,8 @@ export class ObservationDetailComponent {
         model.lat = this.latitude;
         model.lng = this.longitude;
         model['concern-opinion'] = this.opinion;
+        model['litigation-status'] = this.litigationStatus;
+        model.law = this.law;
         model.pv = this.pv;
         model.fmu = this.fmu;
       } else {
