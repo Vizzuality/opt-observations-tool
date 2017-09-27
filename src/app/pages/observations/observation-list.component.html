@@ -1,16 +1,17 @@
 <div class="c-table-header">
   <otp-filters>
-    <otp-filter i18n-name="Table of observations|Name of a filter" name="Type" prop="observation-type" [values]="['operator', 'government']" default="operator" [required]="true"></otp-filter>
-    <otp-filter i18n-name="Table of observations|Name of a filter" name="Country" prop="country.iso"></otp-filter>
-    <otp-filter i18n-name="Table of observations|Name of a filter" name="Operator" prop="operator.name"></otp-filter>
-    <otp-filter i18n-name="Table of observations|Name of a filter" name="Category" [prop]="observationType === 'operators' ? 'annex_operator.illegality' : 'annex_governance.governance_pillar'"></otp-filter>
-    <otp-filter i18n-name="Table of observations|Name of a filter" name="Severity" prop="severity.level" [values]="[0, 1, 2, 3]"></otp-filter>
+    <otp-filter i18n-name="Table of observations|Name of a filter" name="Type" [values]="['operator', 'government']" prop="observation-type" default="operator" [required]="true"></otp-filter>
+    <otp-filter i18n-name="Table of observations|Name of a filter" name="Country" values="countries" prop="country-id" name-attr="name"></otp-filter>
+    <otp-filter i18n-name="Table of observations|Name of a filter" name="Operator" values="operators" prop="operator" name-attr="name"></otp-filter>
+    <otp-filter i18n-name="Table of observations|Name of a filter" name="Report" values="observation-reports" prop="observation-report" name-attr="title"></otp-filter>
+    <otp-filter i18n-name="Table of observations|Name of a filter" name="Status" [values]="{ 'Pending': false, 'Active': true }" prop="is-active"></otp-filter>
   </otp-filters>
 
   <a class="c-button -primary" routerLink="../new" i18n="Button to create a new observation">New observation</a>
 </div>
 
 <otp-table i18n-caption="Caption for the table which lists the observations" caption="Observations">
+  <otp-table-column i18n-name="Table of observations|Name of the column corresponding to the id of the observations" name="ID" prop="id"></otp-table-column>
   <otp-table-column i18n-name="Table of observations|Name of the column corresponding to the date of the observations" name="Date" prop="publication-date">
     <ng-template let-value="value" table-cell-template>{{getFormatedDate(value)}}</ng-template>
   </otp-table-column>

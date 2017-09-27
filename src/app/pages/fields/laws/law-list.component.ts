@@ -1,18 +1,17 @@
-import { TableFilterBehavior } from 'app/shared/table-filter/table-filter.behavior';
-import { Government } from './../../../models/government.model';
-import { GovernmentsService } from 'app/services/governments.service';
+import { LawsService } from 'app/services/laws.service';
 import { Router, ActivatedRoute } from '@angular/router';
 import { Component } from '@angular/core';
+import { TableFilterBehavior } from 'app/shared/table-filter/table-filter.behavior';
 
 @Component({
-  selector: 'otp-government-list',
-  templateUrl: './government-list.component.html',
-  styleUrls: ['./government-list.component.scss']
+  selector: 'otp-law-list',
+  templateUrl: './law-list.component.html',
+  styleUrls: ['./law-list.component.scss']
 })
-export class GovernmentListComponent extends TableFilterBehavior {
+export class LawListComponent extends TableFilterBehavior {
 
   constructor(
-    protected service: GovernmentsService,
+    protected service: LawsService,
     private router: Router,
     private route: ActivatedRoute
   ) {
@@ -38,10 +37,9 @@ export class GovernmentListComponent extends TableFilterBehavior {
     return string.slice(0, limit) + '...';
   }
 
-  onEdit(row): void {
+  onInfo(row) {
     // Without relativeTo, the navigation doesn't work properly
-    this.router.navigate(['edit', row.id], { relativeTo: this.route });
+    this.router.navigate([`edit/${row.id}`], { relativeTo: this.route });
   }
-
 
 }

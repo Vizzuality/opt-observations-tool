@@ -1,4 +1,8 @@
 import 'reflect-metadata';
+import { SeveritiesService } from 'app/services/severities.service';
+import { LawListComponent } from 'app/pages/fields/laws/law-list.component';
+import { LawDetailComponent } from 'app/pages/fields/laws/law-detail.component';
+import { SeverityListComponent } from 'app/pages/fields/severities/severity-list.component';
 import { ReportLibraryComponent } from 'app/pages/my-otp/report-library/report-library.component';
 import { LawsService } from 'app/services/laws.service';
 import { ObservationDocumentsService } from 'app/services/observation-documents.service';
@@ -113,6 +117,9 @@ import { MultiselectDropdownModule } from 'angular-2-dropdown-multiselect';
     SubcategoryListComponent,
     SubcategoriesComponent,
     ReportLibraryComponent,
+    LawListComponent,
+    LawDetailComponent,
+    SeverityListComponent,
     IconComponent,
     MaxTabletDirective,
     MinTabletDirective,
@@ -159,6 +166,7 @@ import { MultiselectDropdownModule } from 'angular-2-dropdown-multiselect';
     ObservationReportsService,
     ObservationDocumentsService,
     LawsService,
+    SeveritiesService,
     ResponsiveService,
     WebWorkerService,
     { provide: RequestOptions, useClass: OauthRequestOptions }
