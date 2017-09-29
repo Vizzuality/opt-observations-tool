@@ -1,31 +1,64 @@
-import { UserDetailComponent } from 'app/pages/users/user-detail.component';
+import { TranslateService } from '@ngx-translate/core';
 import { User } from './../../models/user.model';
 import { UsersService } from 'app/services/users.service';
 import { AuthService } from 'app/services/auth.service';
-import { Component, OnInit, ViewChild } from '@angular/core';
+import { Component } from '@angular/core';
 
 @Component({
   selector: 'otp-profile',
   templateUrl: './profile.component.html',
   styleUrls: ['./profile.component.scss']
 })
-export class ProfileComponent implements OnInit {
+export class ProfileComponent {
 
-  @ViewChild('userDetail') userDetail: UserDetailComponent;
+  user: User = null;
+  loading = true;
+  saveLoading = false;
 
   constructor(
     private auth: AuthService,
-    private userService: UsersService
+    private usersService: UsersService,
+    private translateService: TranslateService
   ) {
-
+    this.loadUser();
   }
 
-  ngOnInit(): void {
-    this.userService.getLoggedUser().then( (data) => {
-      this.userDetail.mode = 'edit';
-      this.userDetail.user = data[0];
-    });
+  /**
+   * Load the user
+   */
+  loadUser() {
+    this.usersService.getById(this.auth.userId, { include: 'country,observer' })
+      .then((user) => {
+        this.user = user;
+
+        // We need to set them to empty string to avoid issues with
+        // the equalTo validator
+        this.user.password = '';
+        this.user['password-confirmation'] = '';
+      })
+      .catch(err => console.error(err)) // TODO: visual feedback
+      .then(() => this.loading = false);
   }
 
+  onDiscard() {
+    this.loadUser();
+  }
+
+  onSubmit(): void {
+    this.saveLoading = true;
+
+    // We can't send empty string to the server without
+    // receiving an error
+    if (!this.user.password.length) {
+      this.user.password = null;
+      this.user['password-confirmation'] = null;
+    }
+
+    this.user.save()
+      .toPromise()
+      .then(async () => alert(await this.translateService.get('profileUpdate.success').toPromise()))
+      .catch(async () => alert(await this.translateService.get('profileUpdate.success').toPromise()))
+      .then(() => this.saveLoading = false);
+  }
 
 }

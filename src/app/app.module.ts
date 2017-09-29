@@ -51,14 +51,14 @@ import { GovernmentsService } from 'app/services/governments.service';
 import { CategoryListComponent } from 'app/pages/fields/categories/category-list.component';
 import { HeaderComponent } from 'app/shared/header/header.component';
 import { NavigationComponent } from 'app/shared/navigation/navigation.component';
-import { UserDetailComponent } from 'app/pages/users/user-detail.component';
+// import { UserDetailComponent } from 'app/pages/users/user-detail.component';
 import { UsersService } from 'app/services/users.service';
-import { TabsComponent } from 'app/shared/tabs/tabs.component';
+// import { TabsComponent } from 'app/shared/tabs/tabs.component';
 import { ObservationDetailComponent } from 'app/pages/observations/observation-detail.component';
 import { FieldListComponent } from 'app/pages/fields/field-list.component';
 import { FieldDetailComponent } from 'app/pages/fields/field-detail.component';
 import { ProfileComponent } from 'app/pages/profile/profile.component';
-import { UserListComponent } from 'app/pages/users/user-list.component';
+// import { UserListComponent } from 'app/pages/users/user-list.component';
 import { BottombarComponent } from 'app/shared/bottom-bar/bottom-bar.component';
 import { DatastoreService } from 'app/services/datastore.service';
 import { CountriesService } from 'app/services/countries.service';
@@ -74,13 +74,20 @@ import { BrowserModule } from '@angular/platform-browser';
 import { NgModule } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { JsonApiModule } from 'angular2-jsonapi';
-import { HttpModule, RequestOptions } from '@angular/http';
+import { HttpModule, RequestOptions, } from '@angular/http';
+import { HttpClientModule, HttpClient } from '@angular/common/http';
 import { SpinnerModule } from 'angular2-spinner/dist';
 import { DatePickerModule } from 'ng2-datepicker';
 import { ObservationsService } from 'app/services/observations.service';
 import { MaxTabletDirective, MinTabletDirective } from 'app/directives/responsive.directive';
 import { LeafletModule } from '@asymmetrik/ngx-leaflet';
 import { MultiselectDropdownModule } from 'angular-2-dropdown-multiselect';
+import { TranslateModule, TranslateLoader } from '@ngx-translate/core';
+import { TranslateHttpLoader } from '@ngx-translate/http-loader';
+
+export function createTranslateLoader(http: HttpClient) {
+    return new TranslateHttpLoader(http, './assets/locale/', '.json');
+}
 
 @NgModule({
   declarations: [
@@ -92,12 +99,12 @@ import { MultiselectDropdownModule } from 'angular-2-dropdown-multiselect';
     ObservationDetailComponent,
     RegisterComponent,
     BottombarComponent,
-    UserListComponent,
-    UserDetailComponent,
+    // UserListComponent,
+    // UserDetailComponent,
     ProfileComponent,
     FieldListComponent,
     FieldDetailComponent,
-    TabsComponent,
+    // TabsComponent,
     NavigationComponent,
     NavigationItemDirective,
     HeaderComponent,
@@ -147,7 +154,15 @@ import { MultiselectDropdownModule } from 'angular-2-dropdown-multiselect';
     SpinnerModule,
     DatePickerModule,
     LeafletModule.forRoot(),
-    MultiselectDropdownModule
+    MultiselectDropdownModule,
+    HttpClientModule,
+    TranslateModule.forRoot({
+      loader: {
+        provide: TranslateLoader,
+        useFactory: (createTranslateLoader),
+        deps: [HttpClient]
+      }
+    })
   ],
   providers: [
     TokenService,
