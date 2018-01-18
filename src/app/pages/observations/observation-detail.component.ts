@@ -73,7 +73,7 @@ export class ObservationDetailComponent {
     center: [10, 0],
     zoom: 1,
     layers: [
-      L.tileLayer('https://cartodb-basemaps-{s}.global.ssl.fastly.net/dark_all/{z}/{x}/{y}.png', {
+      L.tileLayer('https://cartodb-basemaps-{s}.global.ssl.fastly.net/light_all/{z}/{x}/{y}.png', {
         maxZoom: 18,
         attribution: `&copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a>,
           &copy;<a href="https://carto.com/attribution">CARTO</a>`
@@ -108,6 +108,7 @@ export class ObservationDetailComponent {
   _fmu: Fmu = null; // Only for type operator
   _government: Government = null; // Only for type government
   _actions: string;
+  _validationStatus: string;
   // Report to upload
   report: ObservationReport = this.datastoreService.createRecord(ObservationReport, {});
   // Report choosed between options
@@ -135,7 +136,7 @@ export class ObservationDetailComponent {
     }
 
     // When the type change we load the necessary additional information
-    this.countriesService.getAll(type === 'government' ? { include: 'governments'} : {})
+    this.countriesService.getAll(type === 'government' ? { include: 'governments', sort: 'name' } : { sort: 'name' })
       .then(countries => this.countries = countries)
       .then(() => {
         // If we're editing an observation, the object Country of the observation won't
@@ -460,6 +461,15 @@ export class ObservationDetailComponent {
     }
   }
 
+  get validationStatus() { return this.observation ? this.observation['validation-status'] : this._validationStatus; }
+  set validationStatus(validationStatus) {
+    if (this.observation) {
+      this.observation['validation-status'] = validationStatus;
+    } else {
+      this._validationStatus = validationStatus;
+    }
+  }
+
   get mapLayers(): any[] {
     const layers = [];
 
@@ -638,9 +648,15 @@ export class ObservationDetailComponent {
         return;
       }
 
+      const latitude = (latitudeRef === 'N' ? 1 : -1) * self.convertMinutesToDegrees(minLatitude);
+      const longitude = (longitudeRef === 'E' ? 1 : -1) * self.convertMinutesToDegrees(minLongitude);
+
       // We convert them to decimal degrees
-      self.latitude = (latitudeRef === 'N' ? 1 : -1) * self.convertMinutesToDegrees(minLatitude);
-      self.longitude = (longitudeRef === 'E' ? 1 : -1) * self.convertMinutesToDegrees(minLongitude);
+      self.latitude = latitude;
+      self.longitude = longitude;
+
+      // We zoom in the area
+      self.map.setView([latitude, longitude], 8);
     });
   }
 
@@ -730,20 +746,19 @@ export class ObservationDetailComponent {
       return false;
     }
 
+    if (this.observation['validation-status'] !== 'Created') {
+      return true;
+    }
+
     // If the user is an admin and the observation
-    // is linked to its organization, then the form is
+    // is linked to their organization, then the form is
     // not disabled
     if (isAdmin
       && this.observation.observers.find(o => o.id === this.authService.userObserverId)) {
       return false;
     }
 
-    // If the observation is active, it is disabled
-    if (this.observation['is-active']) {
-      return true;
-    }
-
-    // If the observation is not active, then only the person
+    // If this is a standard user, only the person
     // who edited it can edit it
     return !this.observation.user || this.observation.user.id !== this.authService.userId;
   }
@@ -826,6 +841,13 @@ export class ObservationDetailComponent {
     return Promise.all(deletePromises.concat(<any>uploadPromises));
   }
 
+  async onSubmitForReview() {
+    if (window.confirm(await this.translateService.get('observationSubmitForReview').toPromise())) {
+      this.validationStatus = 'Ready for revision';
+      this.onSubmit();
+    }
+  }
+
   onSubmit(): void {
     this.loading = true;
 
@@ -853,7 +875,8 @@ export class ObservationDetailComponent {
         details: this.details,
         severity: this.severity,
         observers: this.observers.filter((observer, index) => this._additionalObserversSelection.indexOf(index) !== -1),
-        'actions-taken': this.actions
+        'actions-taken': this.actions,
+        'validation-status': this.validationStatus
       };
 
       if (this.type === 'operator') {

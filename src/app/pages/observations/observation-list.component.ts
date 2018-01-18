@@ -19,24 +19,10 @@ export class ObservationListComponent extends TableFilterBehavior {
   private selected = [];
   private editURL: string;
   statusFilterValues: any = {};
-
-  get observationType(): string {
-    const filters = super.getFiltersApiParams();
-    return filters.type || 'operators';
-  }
+  typeFilterValues: any = [];
 
   get isMyOTP(): boolean {
     return /my\-otp/.test(this.router.url);
-  }
-
-  public getTableApiParams(): JsonApiParams {
-    const params = super.getTableApiParams();
-
-    if (this.isMyOTP) {
-      params.user = 'current';
-    }
-
-    return params;
   }
 
   constructor(
@@ -49,8 +35,12 @@ export class ObservationListComponent extends TableFilterBehavior {
     super();
 
     this.updateStatusFilterValues();
+    this.updateTypeFilterValues();
 
-    this.translateService.onLangChange.subscribe(() => this.updateStatusFilterValues());
+    this.translateService.onLangChange.subscribe(() => {
+      this.updateStatusFilterValues();
+      this.updateTypeFilterValues();
+    });
   }
 
   /**
@@ -59,17 +49,46 @@ export class ObservationListComponent extends TableFilterBehavior {
    */
   async updateStatusFilterValues() {
     await Promise.all([
-      this.translateService.get('Pending').toPromise(),
-      this.translateService.get('Active').toPromise()
-    ]).then(([ pending, active]) => {
+      this.translateService.get('Created').toPromise(),
+      this.translateService.get('Ready for revision').toPromise(),
+      this.translateService.get('Under revision').toPromise(),
+      this.translateService.get('Approved').toPromise(),
+      this.translateService.get('Rejected').toPromise()
+    ]).then(([ created, ready, revision, approved, rejected]) => {
       // We sort the values by alphabetical order
-      const values = { [pending]: false, [active]: true };
+      const values = {
+        [created]: 'Created',
+        [ready]: 'Ready for revision',
+        [revision]: 'Under revision',
+        [approved]: 'Approved',
+        [rejected]: 'Rejected'
+      };
       return Object.keys(values)
         .sort()
         .map(key => ({ [key]: values[key] }))
         .reduce((res, filter) => Object.assign(res, filter), {});
 
     }).then(statusFilterValues => this.statusFilterValues = statusFilterValues);
+  }
+
+  /**
+   * Update the values for the type filter according to
+   * the current language
+   */
+  async updateTypeFilterValues() {
+    await Promise.all([
+      this.translateService.get('Operator').toPromise(),
+      this.translateService.get('Government').toPromise()
+    ]).then(([operator, government]) => {
+      const values = {
+        [operator]: 'operator',
+        [government]: 'government'
+      };
+      return Object.keys(values)
+        .sort()
+        .map(key => ({ [key]: values[key] }))
+        .reduce((res, filter) => Object.assign(res, filter), {});
+    }).then(typeFilterValues => this.typeFilterValues = typeFilterValues);
   }
 
   getFormatedDate(date: Date|string): string {
@@ -99,20 +118,17 @@ export class ObservationListComponent extends TableFilterBehavior {
   canEdit(observation: Observation): boolean {
     const isAdmin = this.authService.isAdmin();
 
-    // If the user is an admin, they can do whatever they
-    // want
+    if (observation['validation-status'] !== 'Created') {
+      return false;
+    }
+
+    // Admin users can only edit observations whose observers contain
+    // theirs
     if (isAdmin) {
       return !!observation.observers.find(o => o.id === this.authService.userObserverId);
     }
 
-    // If the observation is active, only the admin users
-    // can edit or delete it
-    if (observation['is-active']) {
-      return false;
-    }
-
-    // If the observation is not active, then only the person
-    // who edited it can edit or remove it
+    // Standard users can only edit observations they've created
     return observation.user && observation.user.id === this.authService.userId;
   }
 }
