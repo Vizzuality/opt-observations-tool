@@ -20,6 +20,7 @@ export interface Filter {
 export class FiltersComponent implements AfterContentInit {
 
   private _filtersNodes: QueryList<FilterDirective>;
+  previousState: JsonApiParams;
   filters: Filter[] = [];
   modalOpen = false;
   objectKeys = Object.keys;
@@ -54,6 +55,7 @@ export class FiltersComponent implements AfterContentInit {
 
   /**
    * Return the params for the API calls
+   * NOTE: overriden in the report library
    */
   getApiParams(): JsonApiParams {
     return this.filters
@@ -63,6 +65,28 @@ export class FiltersComponent implements AfterContentInit {
           [`filter[${filter.prop}]`]: filter.selected
         });
       }, {});
+  }
+
+  /**
+   * Restore the state of the filters
+   */
+  restoreState() {
+    if (!this.previousState) {
+      return;
+    }
+
+    for (const key in this.previousState) {
+      if (this.previousState.hasOwnProperty(key)) {
+        const filterName = key.match(/filter\[(.*)\]/)[1];
+        const filterValue = this.previousState[key];
+        const filter = this.filters.find(f => f.prop === filterName);
+        if (filter) {
+          filter.selected = filterValue;
+        }
+      }
+    }
+
+    this.change.emit();
   }
 
   async resetFilters(silent = false) {
@@ -130,6 +154,7 @@ export class FiltersComponent implements AfterContentInit {
           }))
         ];
       })
+      .then(() => this.restoreState())
       .catch(err => console.error(err)); // TODO: visual feedback
 
     if (!silent) {
@@ -150,5 +175,4 @@ export class FiltersComponent implements AfterContentInit {
   hasValue(filter: Filter): boolean {
     return filter.selected !== null;
   }
-
 }

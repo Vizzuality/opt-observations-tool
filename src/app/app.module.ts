@@ -1,4 +1,6 @@
 import 'reflect-metadata';
+import { ReportLibraryDetailComponent } from 'app/pages/my-otp/report-library/report-library-detail.component';
+import { FormattedDateComponent } from 'app/shared/formatted-date/formatted-date.component';
 import { TagComponent } from 'app/shared/tag/tag.component';
 import { SeveritiesService } from 'app/services/severities.service';
 import { LawListComponent } from 'app/pages/fields/laws/law-list.component';
@@ -78,13 +80,13 @@ import { JsonApiModule } from 'angular2-jsonapi';
 import { HttpModule, RequestOptions, } from '@angular/http';
 import { HttpClientModule, HttpClient } from '@angular/common/http';
 import { SpinnerModule } from 'angular2-spinner/dist';
-import { DatePickerModule } from 'ng2-datepicker';
 import { ObservationsService } from 'app/services/observations.service';
 import { MaxTabletDirective, MinTabletDirective } from 'app/directives/responsive.directive';
 import { LeafletModule } from '@asymmetrik/ngx-leaflet';
 import { MultiselectDropdownModule } from 'angular-2-dropdown-multiselect';
 import { TranslateModule, TranslateLoader } from '@ngx-translate/core';
 import { TranslateHttpLoader } from '@ngx-translate/http-loader';
+import { ResetPasswordComponent } from 'app/pages/reset-password/reset-password.component';
 
 export function createTranslateLoader(http: HttpClient) {
     return new TranslateHttpLoader(http, './assets/locale/', '.json');
@@ -145,7 +147,10 @@ export function createTranslateLoader(http: HttpClient) {
     FilterDirective,
     ModalComponent,
     Base64FileInputDirective,
-    TagComponent
+    TagComponent,
+    FormattedDateComponent,
+    ResetPasswordComponent,
+    ReportLibraryDetailComponent
   ],
   imports: [
     JsonApiModule,
@@ -154,7 +159,6 @@ export function createTranslateLoader(http: HttpClient) {
     HttpModule,
     AppRoutingModule,
     SpinnerModule,
-    DatePickerModule,
     LeafletModule.forRoot(),
     MultiselectDropdownModule,
     HttpClientModule,

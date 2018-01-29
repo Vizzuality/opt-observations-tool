@@ -1,15 +1,22 @@
 <div class="c-table-header">
   <otp-filters></otp-filters>
+  <button (click)="onClickNewReport()" class="c-button -primary">
+    {{'New report' | translate}}
+  </button>
 </div>
 
 <otp-table [caption]="'Reports' | translate">
   <otp-table-column prop="title" [name]="'Title' | translate"></otp-table-column>
   <otp-table-column prop="publication-date" [name]="'Publication date' | translate">
-    <ng-template let-value="value" table-cell-template>{{ value ? getFormatedDate(value) : '–' }}</ng-template>
+    <ng-template let-value="value" table-cell-template>
+      <ng-template [ngIf]="value"><otp-formatted-date [date]="value"></otp-formatted-date></ng-template>
+      <ng-template [ngIf]="!value">–</ng-template>
+    </ng-template>
   </otp-table-column>
   <otp-table-column [name]="'Actions' | translate">
     <ng-template let-row="row" table-cell-template>
       <a href="{{apiUrl}}{{row.attachment.url}}" class="action" [attr.aria-label]="'Download' | translate" target="_blank" download><otp-icon name="#icon-download"></otp-icon></a>
+      <button class="action" (click)="onEdit(row)" [attr.aria-label]="'Edit' | translate"><otp-icon name="#icon-edit"></otp-icon></button>
     </ng-template>
   </otp-table-column>
 </otp-table>

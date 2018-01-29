@@ -28,6 +28,17 @@
         }
       }
 
+      &.-radio {
+        p {
+          margin: 0 0 5px;
+        }
+
+        input {
+          display: inline-block;
+          margin-right: 8px;
+        }
+      }
+
       label {
         font-size: $font-size-default;
         font-weight: $font-weight-default;
@@ -35,7 +46,8 @@
       }
 
       input,
-      select {
+      select,
+      textarea {
         margin: 0;
       }
 
@@ -158,8 +170,21 @@
   .form-header {
     margin: 20px 0;
 
+    select,
+    input,
+    textarea {
+      margin: 0;
+    }
+
     .c-button-container {
       margin: 0;
+    }
+
+    .note {
+      margin: 5px 0 0;
+      font-size: 0.8125rem;
+
+      a { color: $color-primary; }
     }
   }
 

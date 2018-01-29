@@ -24,10 +24,12 @@ export class TableComponent implements AfterContentInit {
   @Input() caption: string;
   @Input() perPage = 10;
   @Input() include: string[] = []; // Include param for the query
+  @Input() defaultSort: string; // Default sort param (ex: "name" or "-name")
   @Input() options: any; // Additional options for the table
 
   @Output() change = new EventEmitter<void>();
 
+  previousState: JsonApiParams;
   loading = false;
   columns: any[] = [];
   sortColumn: any; // Column used for sorting the table
@@ -63,7 +65,7 @@ export class TableComponent implements AfterContentInit {
               return null;
             }
 
-            const split = this.prop.split('.');
+            const split = this.prop.replace(/[\[\]]/g, '').split('.');
             let res = row;
 
             for (let i = 0, j = split.length; i < j; i++) {
@@ -77,6 +79,29 @@ export class TableComponent implements AfterContentInit {
           };
 
           this.columns.push(column);
+        }
+
+        if (this.previousState) {
+          this.restoreState();
+        } else if (this.defaultSort) { // We eventually set the default sort
+          const sortColumnProp = this.defaultSort.match(/-?(.*)/)[1];
+          const sortColumn = this.columns.find(c => c.prop === sortColumnProp);
+          const isDesc = !!this.defaultSort.match(/(-?).*/)[1].length;
+
+          // We only set the sort if it hasn't set before or if
+          // the columns has been reset and it stays the same
+          if (!this.sortColumn || this.sortColumn.prop === sortColumn.prop) {
+            this.sortColumn = sortColumn;
+            this.sortOrder = isDesc ? 'desc' : 'asc';
+          }
+        }
+
+        // If the columns are dynamically added or removed
+        // the current sorting might not be available anymore
+        // so we remove it
+        if (this.sortColumn && !this.columns.find(c => c.prop === this.sortColumn.prop)) {
+          this.sortColumn = null;
+          this.change.emit();
         }
       }
     }
@@ -129,15 +154,39 @@ export class TableComponent implements AfterContentInit {
 
   get state(): TableState {
     const include = [
-      ...this.columns.filter(col => col.include).map(col => col.prop.split('.')[0]),
+      ...this.columns.filter(col => col.include)
+        .map((col) => {
+          // Two patterns can be used in the prop attribute:
+          //   1. subcategory.name
+          //   2. [subcategory.category].name
+          const regexMatches = col.prop.match(/\[(.*)\](.*)/);
+
+          // This is case 2.
+          if (regexMatches && regexMatches.length > 1) {
+            return regexMatches[1];
+          }
+
+          // This is case 1.
+          return col.prop.split('.')[0];
+        }),
       ...this.include
     ];
+
+    let sortColumn;
+    if (this.sortColumn) {
+      sortColumn = this.sortColumn.prop.replace(/[\[\]]/g, '');
+    }
+
+    let sortOrder;
+    if (this.sortOrder) {
+      sortOrder = this.sortOrder === 'asc' ? 1 : -1;
+    }
 
     return {
       page: this.currentPage,
       perPage: this.perPage,
-      sortColumn: this.sortColumn && this.sortColumn.prop,
-      sortOrder: this.sortOrder && this.sortOrder === 'asc' ? 1 : -1,
+      sortColumn,
+      sortOrder,
       include
     };
   }
@@ -185,6 +234,24 @@ export class TableComponent implements AfterContentInit {
     }
 
     return params;
+  }
+
+  /**
+   * Restore the state of the table
+   */
+  restoreState() {
+    if (this.previousState.sort) {
+      const sortColumnProp = this.previousState.sort.match(/-?(.*)/)[1];
+      const sortColumn = this.columns.find(c => c.prop.replace(/[\[\]]/g, '') === sortColumnProp);
+      const isDesc = !!this.previousState.sort.match(/(-?).*/)[1].length;
+
+      if (sortColumn) {
+        this.sortColumn = sortColumn;
+        this.sortOrder = isDesc ? 'desc' : 'asc';
+      }
+    }
+
+    this.change.emit();
   }
 
   /**

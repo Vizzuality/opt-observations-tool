@@ -1,3 +1,4 @@
+import { ReportLibraryDetailComponent } from 'app/pages/my-otp/report-library/report-library-detail.component';
 import { LawDetailComponent } from 'app/pages/fields/laws/law-detail.component';
 import { LawListComponent } from 'app/pages/fields/laws/law-list.component';
 import { SeverityListComponent } from 'app/pages/fields/severities/severity-list.component';
@@ -33,6 +34,7 @@ import { OrganizationProfileComponent } from 'app/pages/my-otp/profile/organizat
 import { MyOTPComponent } from 'app/pages/my-otp/my-otp.component';
 import { ObservationsComponent } from 'app/pages/observations/observations.component';
 import { ReportLibraryComponent } from 'app/pages/my-otp/report-library/report-library.component';
+import { ResetPasswordComponent } from 'app/pages/reset-password/reset-password.component';
 
 
 const observationsChildren = [
@@ -67,6 +69,10 @@ const routes: Routes = [
     component: RegisterComponent
   },
   {
+    path: 'reset-password',
+    component: ResetPasswordComponent
+  },
+  {
     path: 'private',
     canActivate: [AuthGuard],
     children: [
@@ -87,7 +93,15 @@ const routes: Routes = [
           {
             path: 'reports',
             component: ReportLibraryComponent
-          }
+          },
+          {
+            path: 'reports/new',
+            component: ReportLibraryDetailComponent
+          },
+          {
+            path: 'reports/edit/:id',
+            component: ReportLibraryDetailComponent
+          },
           // {
           //   path: 'observations',
           //   children: observationsChildren

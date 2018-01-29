@@ -109,6 +109,8 @@ export class ObservationDetailComponent {
   _government: Government = null; // Only for type government
   _actions: string;
   _validationStatus: string;
+  _locationInformation: string;
+  _physicalPlace = true;
   // Report to upload
   report: ObservationReport = this.datastoreService.createRecord(ObservationReport, {});
   // Report choosed between options
@@ -144,6 +146,9 @@ export class ObservationDetailComponent {
         // and set it
         if (this.observation) {
           this.country = this.countries.find((country) => country.id === this.observation.country.id);
+        } else {
+          // By default, the selected country is one of the observer's
+          this.setDefaultCountry();
         }
       });
 
@@ -495,7 +500,7 @@ export class ObservationDetailComponent {
     }
   }
 
-  get reportChoice() { return this.observation ? this.observation['observation-report'] : this._reportChoice; }
+  get reportChoice() { return this.observation ? (this.observation['observation-report'] || null) : this._reportChoice; }
   set reportChoice(reportChoice) {
     if (this.observation) {
       this.observation['observation-report'] = reportChoice;
@@ -522,6 +527,24 @@ export class ObservationDetailComponent {
     }
 
     this.report['publication-date'] = date;
+  }
+
+  get locationInformation() { return this.observation ? this.observation['location-information'] : this._locationInformation; };
+  set locationInformation(locationInformation) {
+    if (this.observation) {
+      this.observation['location-information'] = locationInformation;
+    } else {
+      this._locationInformation = locationInformation;
+    }
+  }
+
+  get physicalPlace() { return this.observation ? this.observation['is-physical-place'] : this._physicalPlace; }
+  set physicalPlace(physicalPlace) {
+    if (this.observation) {
+      this.observation['is-physical-place'] = physicalPlace;
+    } else {
+      this._physicalPlace = physicalPlace;
+    }
   }
 
   constructor(
@@ -764,6 +787,23 @@ export class ObservationDetailComponent {
   }
 
   /**
+   * Set the default country value based on the observer's
+   * locations
+   * NOTE: do not call before loading this.countries
+   */
+  setDefaultCountry() {
+    this.observersService.getById(this.authService.userObserverId, {
+      include: 'countries',
+      fields: { countries: 'id' } // Just save bandwidth and load fastter
+    }).then((observer) => {
+      const countries = observer.countries;
+      if (countries && countries.length) {
+        this.country = this.countries.find(c => c.id === countries[0].id);
+      }
+    }).catch(err => console.error(err));
+  }
+
+  /**
    * Convert a coordinate from minutes, seconds to decimal
    * @param {number[]} coordinate
    * @return {number}
@@ -863,6 +903,12 @@ export class ObservationDetailComponent {
       if (this.type !== 'operator') {
         this.observation['relevant-operators'] = this.operators
           .filter((operator, index) => this._relevantOperatorsSelection.indexOf(index) !== -1);
+      } else {
+        if (!this.physicalPlace) {
+          this.observation.lat = null;
+          this.observation.lng = null;
+          this.observation.fmu = null;
+        }
       }
 
       observation = this.observation;
@@ -876,18 +922,20 @@ export class ObservationDetailComponent {
         severity: this.severity,
         observers: this.observers.filter((observer, index) => this._additionalObserversSelection.indexOf(index) !== -1),
         'actions-taken': this.actions,
-        'validation-status': this.validationStatus
+        'validation-status': this.validationStatus,
+        'concern-opinion':this.opinion
       };
 
       if (this.type === 'operator') {
         model.operator = this.operatorChoice;
-        model.lat = this.latitude;
-        model.lng = this.longitude;
-        model['concern-opinion'] = this.opinion;
+        model['is-physical-place'] = this.physicalPlace;
+        model.lat = this.physicalPlace ? this.latitude : null;
+        model.lng = this.physicalPlace ? this.longitude : null;
         model['litigation-status'] = this.litigationStatus;
         model.law = this.law;
         model.pv = this.pv;
-        model.fmu = this.fmu;
+        model.fmu = this.physicalPlace ? this.fmu : null;
+        model['location-information'] = this.locationInformation;
       } else {
         model.government = this.government;
         model['relevant-operators'] = this.operators.filter((operator, index) => this._relevantOperatorsSelection.indexOf(index) !== -1);
