@@ -107,6 +107,7 @@ export class ObservationDetailComponent {
   _longitude: number; // Only for type operator
   _fmu: Fmu = null; // Only for type operator
   _government: Government = null; // Only for type government
+  _law: Law = null; // Only for type operator
   _actions: string;
   _validationStatus: string;
   _locationInformation: string;
@@ -115,7 +116,6 @@ export class ObservationDetailComponent {
   report: ObservationReport = this.datastoreService.createRecord(ObservationReport, {});
   // Report choosed between options
   _reportChoice: ObservationReport = null;
-  law: Law = null; // Only for type operator
 
   get type() { return this.observation ? this.observation['observation-type'] : this._type; }
   set type(type) {
@@ -223,7 +223,7 @@ export class ObservationDetailComponent {
             // match any of the objects of this.laws, so we search for the "same" model
             // and set it
             if (this.observation && this.observation.country === country
-              && this.observation.subcategory === this.subcategory) {
+              && this.observation.subcategory === this.subcategory && this.observation.law) {
               this.law = this.laws.find(law => law.id === this.observation.law.id);
             } else {
               this.law = null;
@@ -349,7 +349,7 @@ export class ObservationDetailComponent {
           // match any of the objects of this.laws, so we search for the "same" model
           // and set it
           if (this.observation && this.observation.country === this.country
-            && this.observation.subcategory === subcategory) {
+            && this.observation.subcategory === subcategory && this.observation.law) {
             this.law = this.laws.find(law => law.id === this.observation.law.id);
           } else {
             this.law = null;
@@ -427,6 +427,15 @@ export class ObservationDetailComponent {
       this.observation['litigation-status'] = litigationStatus;
     } else {
       this._litigationStatus = litigationStatus;
+    }
+  }
+
+  get law() { return this.observation ? this.observation.law : this._law; }
+  set law(law) {
+    if (this.observation) {
+      this.observation.law = law;
+    } else {
+      this._law = law;
     }
   }
 
@@ -761,8 +770,6 @@ export class ObservationDetailComponent {
    * @returns {boolean}
    */
   isDisabled(): boolean {
-    const isAdmin = this.authService.isAdmin();
-
     // The user is creating an observation, the form
     // is not disabled
     if (!this.route.snapshot.params.id) {
@@ -773,17 +780,26 @@ export class ObservationDetailComponent {
       return true;
     }
 
-    // If the user is an admin and the observation
-    // is linked to their organization, then the form is
+    // If the observation is linked to their organization, then the form is
     // not disabled
-    if (isAdmin
-      && this.observation.observers.find(o => o.id === this.authService.userObserverId)) {
-      return false;
+    return !this.observation.observers.find(o => o.id === this.authService.userObserverId);
+  }
+
+  /**
+   * Return whether the user can submit the observation
+   * for review
+   * @returns {boolean}
+   */
+  canSubmitForReview(): boolean {
+    if (!this.observation) return true;
+
+    const isAdmin = this.authService.isAdmin();
+
+    if (isAdmin) {
+      return !!this.observation.observers.find(o => o.id === this.authService.userObserverId)
     }
 
-    // If this is a standard user, only the person
-    // who edited it can edit it
-    return !this.observation.user || this.observation.user.id !== this.authService.userId;
+    return this.observation.user && this.observation.user.id === this.authService.userId;
   }
 
   /**
