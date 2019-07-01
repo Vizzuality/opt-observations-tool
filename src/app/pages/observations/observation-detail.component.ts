@@ -1,5 +1,5 @@
 import { TranslateService } from '@ngx-translate/core';
-import cloneDeep from 'lodash/cloneDeep';
+import * as cloneDeep from 'lodash/cloneDeep';
 import EXIF from 'exif-js';
 import { Law } from 'app/models/law.model';
 import { LawsService } from 'app/services/laws.service';
@@ -663,9 +663,10 @@ export class ObservationDetailComponent {
     this.longitude = e.latlng.lng;
   }
 
-  onChangePhoto(e: Event) {
-    const photo = (<HTMLInputElement>e.target).files[0];
+  onChangePhoto(e: any) {
+    const photo = e.target.files[0];
     const self = this;
+
     EXIF.getData(photo, async function () {
       // We get the coordinated in minutes, seconds
       const minLatitude: any[] = EXIF.getTag(this, 'GPSLatitude');
