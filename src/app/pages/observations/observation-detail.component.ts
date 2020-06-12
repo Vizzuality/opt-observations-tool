@@ -1,6 +1,7 @@
 import { TranslateService } from '@ngx-translate/core';
 import * as cloneDeep from 'lodash/cloneDeep';
-import EXIF from 'exif-js';
+import * as EXIF from 'exif-js';
+import proj4 from 'proj4';
 import { Law } from 'app/models/law.model';
 import { LawsService } from 'app/services/laws.service';
 import { ObservationDocument } from 'app/models/observation_document';
@@ -8,6 +9,7 @@ import { ObservationReport } from 'app/models/observation_report';
 import { Fmu } from 'app/models/fmu.model';
 import { AuthService } from 'app/services/auth.service';
 import { Observation } from './../../models/observation.model';
+import { DraftObservation } from 'app/models/draft_observation.interface';
 import { DatastoreService } from 'app/services/datastore.service';
 import { SubcategoriesService } from 'app/services/subcategories.service';
 import { Subcategory } from 'app/models/subcategory.model';
@@ -23,12 +25,16 @@ import { GovernmentsService } from 'app/services/governments.service';
 import { Http } from '@angular/http';
 import { CountriesService } from 'app/services/countries.service';
 import { Country } from 'app/models/country.model';
-import { Component } from '@angular/core';
+import { Component, ViewChild, ElementRef, OnDestroy } from '@angular/core';
 import * as L from 'leaflet';
 import { IMultiSelectOption, IMultiSelectSettings } from 'angular-2-dropdown-multiselect';
 import { GeoJsonObject } from 'geojson';
 import { ObservationReportsService } from 'app/services/observation-reports.service';
 import { ObservationDocumentsService } from 'app/services/observation-documents.service';
+import { forkJoin } from "rxjs/observable/forkJoin";
+import { Observable } from 'rxjs/Observable';
+import { interval } from 'rxjs/observable/interval';
+import { Subscription } from 'rxjs/Subscription';
 
 // Fix issues witht the icons of the Leaflet's markers
 const DefaultIcon = L.icon({
@@ -41,14 +47,25 @@ const DefaultIcon = L.icon({
 });
 L.Marker.prototype.options.icon = DefaultIcon;
 
+interface GeoreferencedPhoto { // Usage georefered photo as evidence
+  attachment: string; // Base64 format
+  isUsed: boolean;
+}
+
 @Component({
   selector: 'otp-observation-detail',
   templateUrl: './observation-detail.component.html',
   styleUrls: ['./observation-detail.component.scss']
 })
-export class ObservationDetailComponent {
+export class ObservationDetailComponent implements OnDestroy {
+  @ViewChild('evidenceBlock') evidenceBlock: ElementRef;
+  @ViewChild('evidenceInput') evidenceInput: ElementRef;
   loading = false;
+  objectKeys = Object.keys;
+  subscription: Subscription;
+  needsRevisionState = 'undecided'; // Options are: undecided, amend, explain
   observation: Observation = null; // Only for edit mode
+  draft: DraftObservation = null; // Only for using draft observation
   countries: Country[] = [];
   subcategories: Subcategory[] = [];
   severities: Severity[] = [];
@@ -61,11 +78,33 @@ export class ObservationDetailComponent {
   documentsToDelete: ObservationDocument[] = []; // Existing document to delete
   documentsToUpload: ObservationDocument[] = []; // New document to upload
   evidence: ObservationDocument = this.datastoreService.createRecord(ObservationDocument, {});
+  evidenceTypes = [ // Possible types of an evidence
+    'Government Documents', 'Company Documents', 'Photos',
+    'Testimony from local communities', 'Other', 'Evidence presented in the report'
+  ];
+  evidenceTypeOptions: any = {}; // Object of options for evidence type selection
   operatorTypes = [ // Possible types of an operator
     'Logging company', 'Artisanal', 'Community forest', 'Estate',
     'Industrial agriculture', 'Mining company', 'Sawmill', 'Other', 'Unknown'
   ];
+  coordinatesFormats = [
+    'Decimal',
+    'Degrees and decimal minutes',
+    'Sexagesimal',
+    'UTM',
+  ];
+  coordinatesFormatOptions: any = {};
+  locationChoice = { // Possible ways to choose a location
+    clickMap: 'Estimated location',
+    photo: 'GPS coordinates extracted from photo',
+    manually: 'Accurate GPS coordinates'
+  };
   laws: Law[] = []; // Filtered by country and subcategory
+  isChangedCoordinates = false; // User entered the coordinates manually
+  georeferencedPhoto: GeoreferencedPhoto = {
+    attachment: null,
+    isUsed: false,
+  };
 
   // Map related
   map: L.Map;
@@ -83,6 +122,10 @@ export class ObservationDetailComponent {
   _mapMarker = null; // Layer with the marker
   _mapFmu = null; // Layer with the FMU
 
+  // Governments multi-select related
+  governmentsOptions: IMultiSelectOption[] = [];
+  _governmentsSelection: number[] = [];
+
   // Monitors multi-select related
   additionalObserversOptions: IMultiSelectOption[] = [];
   _additionalObserversSelection: number[] = [];
@@ -95,6 +138,8 @@ export class ObservationDetailComponent {
   _type: string = null;
   _country: Country = null;
   _details: string;
+  _evidenceType: string = null;
+  _evidenceOnReport: string;
   _severity: Severity = null;
   _subcategory: Subcategory = null;
   _publicationDate: Date;
@@ -103,6 +148,9 @@ export class ObservationDetailComponent {
   _opinion: string; // Only for type operator
   _litigationStatus: string; // Only for type operator
   _pv: string; // Only for type operator
+  _coordinatesFormat: string = null;
+  _hemisphere: string = null;
+  _zone: number = null;
   _latitude: number; // Only for type operator
   _longitude: number; // Only for type operator
   _fmu: Fmu = null; // Only for type operator
@@ -111,11 +159,13 @@ export class ObservationDetailComponent {
   _actions: string;
   _validationStatus: string;
   _locationInformation: string;
+  _locationAccuracy: string;
   _physicalPlace = true;
   // Report to upload
   report: ObservationReport = this.datastoreService.createRecord(ObservationReport, {});
   // Report choosed between options
   _reportChoice: ObservationReport = null;
+  _monitorComment: string = null;
 
   get type() { return this.observation ? this.observation['observation-type'] : this._type; }
   set type(type) {
@@ -131,8 +181,8 @@ export class ObservationDetailComponent {
       this.operatorChoice = null;
       this.opinion = null;
       this.pv = null;
-      this.government = null;
       this.publicationDate = null;
+      this._governmentsSelection = [];
       this._additionalObserversSelection = [];
       this.actions = null;
     }
@@ -141,10 +191,14 @@ export class ObservationDetailComponent {
     this.countriesService.getAll(type === 'government' ? { include: 'governments', sort: 'name' } : { sort: 'name' })
       .then(countries => this.countries = countries)
       .then(() => {
-        // If we're editing an observation, the object Country of the observation won't
+        // If we're editing an observation (or using draft), the object Country of the observation won't
         // match any of the objects of this.countries, so we search for the "same" model
         // and set it
-        if (this.observation) {
+        if (this.draft) {
+          this._additionalObserversSelection = this.draft.observers
+            ? this.draft.observers.map(id => this.observers.findIndex(o => +o.id === id)) : [];
+          this.country = this.countries.find((country) => country.id === this.draft.countryId);
+        } else if (this.observation) {
           this.country = this.countries.find((country) => country.id === this.observation.country.id);
         } else {
           // By default, the selected country is one of the observer's
@@ -155,9 +209,12 @@ export class ObservationDetailComponent {
     this.subcategoriesService.getByType(<'operator' | 'government'>type, { include: 'severities,category' })
       .then(subcategories => this.subcategories = subcategories)
       .then(() => {
-        // If we're editing an observation, the object Subcategory of the observation won't
+        // If we're editing an observation (or using draft), the object Subcategory of the observation won't
         // match any of the objects of this.subcategories, so we search for the "same" model
         // and set it
+        if (this.draft && this.draft.subcategoryId) {
+          this.subcategory = this.subcategories.find((subcategory) => subcategory.id === this.draft.subcategoryId);
+        }
         if (this.observation && this.observation.subcategory) {
           this.subcategory = this.subcategories.find((subcategory) => subcategory.id === this.observation.subcategory.id);
         }
@@ -175,23 +232,34 @@ export class ObservationDetailComponent {
 
     // We automatically update the governments options
     if (this.type === 'government') {
-      this.governments = country ? country.governments : [];
-
-      if (this.observation && this.country.id === this.observation.country.id) {
-        this.government = this.governments.find(government => government.id === this.observation.government.id);
-      } else {
-        this.government = null;
+      this.governments = country && country.governments || [];
+      this.governmentsOptions = this.governments.map((government, index) => ({ id: index, name: government['government-entity'] }));
+      if (this.observation) {
+        this._governmentsSelection = this.observation && this.observation.country.id === country.id
+          ? (this.observation.governments || []).map(government => this.governments.findIndex(g => g.id === government.id))
+          : [];
       }
-
+      if (this.draft) {
+        this._governmentsSelection = country && this.draft.countryId === country.id && this.draft.governments
+          ? this.draft.governments.map(id => this.governments.findIndex(g => +g.id === id))
+          : [];
+      }
       if (country) {
         this.operatorsService.getAll({ sort: 'name', filter: { country: country.id } })
           .then((operators) => {
             this.operators = operators;
 
             // We update the list of options for the relevant operators field
-            this._relevantOperatorsSelection = this.observation && this.observation.country.id === country.id
-              ? (this.observation['relevant-operators'] || []).map(relevantOperator => operators.findIndex(o => o.id === relevantOperator.id))
-              : [];
+            if (this.observation) {
+              this._relevantOperatorsSelection = this.observation && this.observation.country.id === country.id
+                ? (this.observation['relevant-operators'] || []).map(relevantOperator => operators.findIndex(o => o.id === relevantOperator.id))
+                : [];
+            }
+            if (this.draft) {
+              this._relevantOperatorsSelection = country && this.draft.countryId === country.id && this.draft.relevantOperators
+                ? this.draft.relevantOperators.map(id => this.operators.findIndex(g => +g.id === id))
+                : [];
+            }
             this.relevantOperatorsOptions = operators
               .map((operator, index) => ({ id: index, name: operator.name }));
           });
@@ -202,10 +270,12 @@ export class ObservationDetailComponent {
         this.operatorsService.getAll({ sort: 'name', filter: { country: this.country.id } })
           .then(operators => this.operators = operators)
           .then(() => {
-            // If we're editing an observation, the object Operator of the observation won't
+            // If we're editing an observation (or using draft), the object Operator of the observation won't
             // match any of the objects of this.operators, so we search for the "same" model
             // and set it
-            if (this.observation && this.observation.country === country && this.observation.operator) {
+            if (this.draft && this.draft.countryId === country.id) {
+              this.operatorChoice = this.operators.find((operator) => operator.id === this.draft.operatorId) || null;
+            } else if (this.observation && this.observation.country === country && this.observation.operator) {
               this.operatorChoice = this.operators.find((operator) => operator.id === this.observation.operator.id);
             } else {
               this.operatorChoice = null;
@@ -219,10 +289,12 @@ export class ObservationDetailComponent {
         this.lawsService.getAll({ filter: { country: country.id, subcategory: this.subcategory.id } })
           .then(laws => this.laws = laws)
           .then(() => {
-            // If we're editing an observation, the object Law of the observation won't
+            // If we're editing an observation (or using draft), the object Law of the observation won't
             // match any of the objects of this.laws, so we search for the "same" model
             // and set it
-            if (this.observation && this.observation.country === country
+            if (this.draft && this.draft.countryId === country.id && this.draft.subcategoryId === this.subcategory.id) {
+              this.law = this.laws.find(law => law.id === this.draft.lawId);
+            } else if (this.observation && this.observation.country === country
               && this.observation.subcategory === this.subcategory && this.observation.law) {
               this.law = this.laws.find(law => law.id === this.observation.law.id);
             } else {
@@ -275,7 +347,9 @@ export class ObservationDetailComponent {
           // If we can restore the FMU of the observation, we do it,
           // otherwise we just reset the fmu each time the user
           // update the operator
-          if (this.observation && this.observation.operator.id === operatorChoice.id && this.observation.fmu) {
+          if (this.draft && this.draft.operatorId === operatorChoice.id) {
+            this.fmu = this.fmus.find(fmu => fmu.id === this.draft.fmuId);
+          } else if (this.observation && this.observation.operator.id === operatorChoice.id && this.observation.fmu) {
             this.fmu = this.fmus.find(fmu => fmu.id === this.observation.fmu.id);
           } else {
             this.fmu = null;
@@ -332,9 +406,11 @@ export class ObservationDetailComponent {
     }
 
     // We automatically update the severities options
-    this.severities = subcategory ? subcategory.severities : [];
+    this.severities = subcategory ? subcategory.severities.sort((a, b) => a.level < b.level ? -1 : 1) : [];
 
-    if (this.observation && this.subcategory.id === this.observation.subcategory.id) {
+    if (this.draft && this.subcategory && this.subcategory.id === this.draft.subcategoryId) {
+      this.severity = this.severities.find(severity => severity.id === this.draft.severityId);
+    } else if (this.observation && this.observation.severity && this.subcategory.id === this.observation.subcategory.id) {
       this.severity = this.severities.find(severity => severity.id === this.observation.severity.id);
     } else {
       this.severity = null;
@@ -345,10 +421,12 @@ export class ObservationDetailComponent {
       this.lawsService.getAll({ filter: { country: this.country.id, subcategory: subcategory.id } })
         .then(laws => this.laws = laws)
         .then(() => {
-          // If we're editing an observation, the object Law of the observation won't
+          // If we're editing an observation (or using draft), the object Law of the observation won't
           // match any of the objects of this.laws, so we search for the "same" model
           // and set it
-          if (this.observation && this.observation.country === this.country
+          if (this.draft && this.draft.countryId === this.country.id && this.draft.subcategoryId === subcategory.id) {
+            this.law = this.laws.find(law => law.id === this.draft.lawId);
+          } else if (this.observation && this.observation.country === this.country
             && this.observation.subcategory === subcategory && this.observation.law) {
             this.law = this.laws.find(law => law.id === this.observation.law.id);
           } else {
@@ -371,6 +449,35 @@ export class ObservationDetailComponent {
     }
   }
 
+  get coordinatesFormat() {
+    if (!this._coordinatesFormat && this.observation && this.latitude !== undefined
+      && this.latitude !== null && this.longitude !== undefined && this.longitude !== null) {
+      return 'Decimal';
+    }
+
+    return this._coordinatesFormat;
+  }
+
+  set coordinatesFormat(coordinatesFormat) {
+    this._coordinatesFormat = coordinatesFormat;
+  }
+
+  get hemisphere() {
+    return this._hemisphere;
+  }
+
+  set hemisphere(hemisphere) {
+    this._hemisphere = hemisphere;
+  }
+
+  get zone() {
+    return this._zone;
+  }
+
+  set zone(zone) {
+    this._zone = zone;
+  }
+
   get latitude() { return this.observation ? this.observation.lat : this._latitude; }
   set latitude(latitude) {
     if (this.observation) {
@@ -379,9 +486,11 @@ export class ObservationDetailComponent {
       this._latitude = latitude;
     }
 
+    const decimalCoordinates = this.getDecimalCoordinates();
+
     // We create a layer with the marker
-    if (this.latitude && this.longitude) {
-      this._mapMarker = L.marker([this.latitude, this.longitude]);
+    if (decimalCoordinates) {
+      this._mapMarker = L.marker(<L.LatLngExpression>decimalCoordinates);
     } else {
       this._mapMarker = null;
     }
@@ -395,9 +504,11 @@ export class ObservationDetailComponent {
       this._longitude = longitude;
     }
 
+    const decimalCoordinates = this.getDecimalCoordinates();
+
     // We create a layer with the marker
-    if (this.latitude && this.longitude) {
-      this._mapMarker = L.marker([this.latitude, this.longitude]);
+    if (decimalCoordinates) {
+      this._mapMarker = L.marker(<L.LatLngExpression>decimalCoordinates);
     } else {
       this._mapMarker = null;
     }
@@ -409,6 +520,24 @@ export class ObservationDetailComponent {
       this.observation.details = details;
     } else {
       this._details = details;
+    }
+  }
+
+  get evidenceType() { return this.observation ? this.observation['evidence-type'] : this._evidenceType }
+  set evidenceType(evidenceType) {
+    if (this.observation) {
+      this.observation['evidence-type'] = evidenceType;
+    } else {
+      this._evidenceType = evidenceType;
+    }
+  }
+
+  get evidenceOnReport() { return this.observation ? this.observation['evidence-on-report'] : this._evidenceOnReport }
+  set evidenceOnReport(evidenceOnReport) {
+    if (this.observation) {
+      this.observation['evidence-on-report'] = evidenceOnReport;
+    } else {
+      this._evidenceOnReport = evidenceOnReport;
     }
   }
 
@@ -445,15 +574,6 @@ export class ObservationDetailComponent {
       this.observation.pv = pv;
     } else {
       this._pv = pv;
-    }
-  }
-
-  get government() { return this.observation ? this.observation.government : this._government; }
-  set government(government) {
-    if (this.observation) {
-      this.observation.government = government;
-    } else {
-      this._government = government;
     }
   }
 
@@ -547,12 +667,30 @@ export class ObservationDetailComponent {
     }
   }
 
+  get locationAccuracy() { return this.observation ? this.observation['location-accuracy'] : this._locationAccuracy; }
+  set locationAccuracy(locationAccuracy) {
+    if (this.observation) {
+      this.observation['location-accuracy'] = locationAccuracy;
+    } else {
+      this._locationAccuracy = locationAccuracy;
+    }
+  }
+
   get physicalPlace() { return this.observation ? this.observation['is-physical-place'] : this._physicalPlace; }
   set physicalPlace(physicalPlace) {
     if (this.observation) {
       this.observation['is-physical-place'] = physicalPlace;
     } else {
       this._physicalPlace = physicalPlace;
+    }
+  }
+
+  get monitorComment() { return this.observation ? this.observation['monitor-comment'] : this._monitorComment; }
+  set monitorComment(monitorComment) {
+    if (this.observation) {
+      this.observation['monitor-comment'] = monitorComment;
+    } else {
+      this._monitorComment = monitorComment;
     }
   }
 
@@ -571,6 +709,16 @@ export class ObservationDetailComponent {
     private route: ActivatedRoute,
     private translateService: TranslateService
   ) {
+    this.updateTranslatedOptions(this.evidenceTypes, 'evidenceType');
+    this.updateTranslatedOptions(this.operatorTypes, 'operatorType');
+    this.updateTranslatedOptions(this.coordinatesFormats, 'coordinatesFormat');
+
+    this.translateService.onLangChange.subscribe(() => {
+      this.updateTranslatedOptions(this.evidenceTypes, 'evidenceType');
+      this.updateTranslatedOptions(this.operatorTypes, 'operatorType');
+      this.updateTranslatedOptions(this.coordinatesFormats, 'coordinatesFormat');
+    });
+
     this.observersService.getAll({ sort: 'name' })
       .then((observers) => {
         this.observers = observers;
@@ -588,9 +736,12 @@ export class ObservationDetailComponent {
       filter: { observer_id: this.authService.userObserverId }
     }).then(reports => this.reports = reports)
       .then(() => {
-        // If we're editing an observation, the object ObservationReport of the observation won't
+        // If we're editing an observation (or using draft), the object ObservationReport of the observation won't
         // match any of the objects of this.reports, so we search for the "same" model
         // and set it
+        if (this.draft) {
+          this.reportChoice = this.reports.find((report) => report.id === this.draft.observationReportId) || null;
+        }
         if (this.observation) {
           this.reportChoice = this.reports.find((report) => report.id === this.observation['observation-report'].id);
         }
@@ -604,7 +755,7 @@ export class ObservationDetailComponent {
 
       this.observationsService.getById(this.existingObservation, {
         // tslint:disable-next-line:max-line-length
-        include: 'country,operator,subcategory,severity,observers,government,modified-user,fmu,observation-report,law,user,relevant-operators'
+        include: 'country,operator,subcategory,severity,observers,governments,modified-user,fmu,observation-report,law,user,relevant-operators'
       }).then((observation) => {
         this.observation = observation;
         if (this.route.snapshot.params.copiedId) {
@@ -640,13 +791,158 @@ export class ObservationDetailComponent {
         })
         .then(() => this.loading = false);
 
-      // We load the list of documents
-      this.observationDocumentsService.getAll({
-        sort: 'name',
-        filter: { observation_id: this.existingObservation }
-      }).then(documents => this.documents = documents)
-        .catch(err => console.error(err)); // TODO: visual feedback
+      // We load the list of documents only if we edit an observation
+      if (this.route.snapshot.params.id) {
+        this.observationDocumentsService.getAll({
+          sort: 'name',
+          filter: { observation_id: this.route.snapshot.params.id }
+        }).then(documents => this.documents = documents)
+          .catch(err => console.error(err)); // TODO: visual feedback
+      }
+    } else {
+      if (this.route.snapshot.params.useDraft) {
+        this.draft = JSON.parse(localStorage.getItem('draftObservation'));
+        // Set values from the draft observation
+        if (this.draft) {
+          this.type = this.draft.observationType;
+          this.actions = this.draft.actionsTaken;
+          this.details = this.draft.details;
+          this.opinion = this.draft.concernOpinion;
+          this.publicationDate = this.draft.publicationDate;
+          this.evidenceType = this.draft.evidenceType;
+          this.evidenceOnReport = this.draft.evidenceOnReport;
+          this.documents = this.draft.documents.map(document => this.datastoreService.createRecord(ObservationDocument, {
+            name: document.name,
+            type: this.draft.evidenceType,
+            attachment: document.attachement
+          }));
+          // If we were going to add an evidence
+          this.evidence.name = this.draft.evidenceTitle;
+          this.evidence.attachment = this.draft.evidenceAttachment;
+          // If we were going to add a new producer (operator)
+          this.operatorName = this.draft.operatorName;
+          this.operatorType = this.draft.operatorType || null;
+          // if we were going to upload a new report
+          this.report.title = this.draft.reportTitle;
+          this.reportAttachment = this.draft.reportAttachment;
+          this.reportDate = new Date(this.draft.reportDate);
+
+          if (this.type === 'operator') {
+            this.physicalPlace = this.draft.isPhysicalPlace;
+            this.latitude = this.draft.lat;
+            this.longitude = this.draft.lng;
+            this.litigationStatus = this.draft.litigationStatus;
+            this.pv = this.draft.pv;
+            this.locationInformation = this.draft.locationInformation;
+            this.locationAccuracy = this.draft.locationAccuracy;
+          }
+        }
+      }
+
+      this.subscription = interval(15000).subscribe(() => {
+        this.saveAsDraftObservation();
+      });
     }
+  }
+
+  ngOnDestroy() {
+    if (this.subscription) {
+      this.subscription.unsubscribe();
+    }
+  }
+
+  private updateTranslatedOptions(phrases: string[], field: string): void {
+    this[`${field}Options`] = {};
+    const observables: Observable<string | any>[] =
+      phrases.map(phrase => this.translateService.get(phrase));
+    forkJoin(observables).subscribe((translatedPhrases: string[]) => {
+      translatedPhrases.forEach((term, i) => {
+        this[`${field}Options`][term] = phrases[i];
+      });
+    });
+  }
+
+  public isEvidenceTypeOnReport(type: string): boolean {
+    return type === 'Evidence presented in the report';
+  }
+
+  public onChangeEvidenceType(previousType: string, type: string, typeElement: HTMLSelectElement): void {
+    if (!this.isEvidenceTypeOnReport(type) || !this.documents.length) {
+      this.evidenceType = type;
+    }
+
+    if (this.isEvidenceTypeOnReport(type) && this.documents.length) {
+      this.translateService.get('observation.evidence.filesDeleteNotification')
+        .subscribe((phrase: string) => {
+          if (confirm(phrase)) {
+            this.evidenceType = type;
+            this.evidence.name = null;
+            this.evidence.attachment = null;
+            this.georeferencedPhoto.isUsed = false;
+            this.evidenceInput.nativeElement.value = '';
+          } else {
+            typeElement.selectedIndex = this.evidenceTypes.indexOf(previousType) + 1;
+          }
+        });
+    } else {
+      this.evidenceOnReport = null;
+    }
+  }
+
+  private saveAsDraftObservation(): void {
+    const draftModel: DraftObservation = {
+      observationType: this.type,
+      publicationDate: this.publicationDate,
+      countryId: this.country && this.country.id,
+      subcategoryId: this.subcategory && this.subcategory.id,
+      details: this.details,
+      severityId: this.severity && this.severity.id,
+      observers: this.observers.filter((o, index) => this._additionalObserversSelection.indexOf(index) !== -1).map(o => +o.id),
+      actionsTaken: this.actions,
+      validationStatus: this.validationStatus,
+      concernOpinion: this.opinion,
+      evidenceType: this.evidenceType,
+      evidenceOnReport: this.evidenceOnReport,
+      evidenceTitle: this.evidence.name,
+      evidenceAttachment: this.evidence.attachment && String(this.evidence.attachment),
+      documents: this.documents.map(document => ({
+        name: document.name,
+        attachement: document.attachment
+      })),
+    };
+    if (this.reportChoice) {
+      draftModel.observationReportId = this.reportChoice.id;
+    } else {
+      draftModel.reportTitle = this.report && this.report.title;
+      draftModel.reportAttachment = this.reportAttachment && String(this.reportAttachment);
+      draftModel.reportDate = this.reportDate || null;
+    }
+
+    if (this.type === 'operator') {
+      const decimalCoordinates = this.getDecimalCoordinates();
+
+      if (this.operatorChoice) {
+        draftModel.operatorId = this.operatorChoice && this.operatorChoice.id;
+      } else {
+        draftModel.operatorName = this.operatorName;
+        draftModel.operatorType = this.operatorType;
+      }
+
+      draftModel.isPhysicalPlace = this.physicalPlace;
+      draftModel.lat = this.physicalPlace && decimalCoordinates ? decimalCoordinates[0] : null;
+      draftModel.lng = this.physicalPlace && decimalCoordinates ? decimalCoordinates[1] : null;
+      draftModel.litigationStatus = this.litigationStatus;
+      draftModel.lawId = this.law && this.law.id;
+      draftModel.pv = this.pv;
+      draftModel.fmuId = this.physicalPlace && this.fmu && this.fmu.id || null;
+      draftModel.locationAccuracy = this.physicalPlace ? this.locationAccuracy : null;
+      draftModel.locationInformation = this.locationInformation;
+    } else {
+      draftModel.governments = this.governments.filter((g, index) => this._governmentsSelection.indexOf(index) !== -1).map(g => +g.id);
+      draftModel.relevantOperators = this.operators.filter((o, index) => this._relevantOperatorsSelection.indexOf(index) !== -1).map(o => +o.id);
+    }
+
+    localStorage.setItem('draftObservation', JSON.stringify(draftModel));
   }
 
   /**
@@ -658,43 +954,176 @@ export class ObservationDetailComponent {
     this.map.on('click', this.onClickMap.bind(this));
   }
 
+  private checkCoordinatesValidity(): number[] | boolean {
+    switch (this.coordinatesFormat) {
+      case 'Decimal':
+        try {
+          return proj4('WGS84', 'WGS84', [+this.latitude, +this.longitude]);
+        } catch (e) {
+          return false;
+        }
+      case 'Degrees and decimal minutes': {
+        const convertCoordinateToDecimal = (coordinate: string) => {
+          const convert = (degrees: string, decimalMinutes: string, direction: string) => {
+            let res = (+degrees) + (+decimalMinutes / 60);
+
+            if (direction == 'S' || direction == 'W') {
+              res *= -1;
+            }
+
+            return res;
+          };
+
+          var parts = coordinate.split(/[^\d\w\.]+/);
+          return convert(parts[0], parts[1], parts[2]);
+        };
+
+        try {
+          const decimalLatitude = convertCoordinateToDecimal(`${this.latitude}`);
+          const decimalLongitude = convertCoordinateToDecimal(`${this.longitude}`);
+          return proj4('WGS84', 'WGS84', [decimalLatitude, decimalLongitude]);
+        } catch (e) {
+          return false;
+        }
+      }
+      case 'Sexagesimal': {
+        const convertCoordinateToDecimal = (coordinate: string) => {
+          const convert = (degrees: string, minutes: string, seconds: string, direction: string) => {
+            let res = (+degrees) + (+minutes / 60) + (+seconds / (60 * 60));
+
+            console.log(degrees, minutes, seconds, direction);
+
+            if (direction == 'S' || direction == 'W') {
+              res *= -1;
+            }
+
+            return res;
+          };
+
+          var parts = coordinate.split(/[^\d\w\.]+/);
+          return convert(parts[0], parts[1], parts[2], parts[3]);
+        };
+
+        try {
+          const decimalLatitude = convertCoordinateToDecimal(`${this.latitude}`);
+          const decimalLongitude = convertCoordinateToDecimal(`${this.longitude}`);
+          return proj4('WGS84', 'WGS84', [decimalLatitude, decimalLongitude]);
+        } catch (e) {
+          return false;
+        }
+      }
+      case 'UTM':
+        try {
+          // We reverse the final result because the UTM coordinates are given by X first
+          // (conventionally the longitude) and then Y (the latitude) which means the result of
+          // proj4 is the longitude first and then the latitude
+          return proj4(
+            `+proj=utm +zone=${this.zone} +datum=WGS84 +units=m +no_defs ${this.hemisphere === 'South' ? ' +south' : ''}`,
+            '+proj=longlat +datum=WGS84 +no_defs', [+this.latitude, +this.longitude],
+          ).reverse();
+        } catch (e) {
+          return false;
+        }
+      default:
+        return false;
+    }
+  }
+
+  private getDecimalCoordinates(): number[] {
+    switch (this.coordinatesFormat) {
+      case 'Decimal':
+      case 'Degrees and decimal minutes':
+      case 'Sexagesimal':
+      case 'UTM':
+        const decimalCoordinates = this.checkCoordinatesValidity();
+        if (!decimalCoordinates) {
+          return null;
+        }
+
+        return <number[]>decimalCoordinates;
+      default:
+        return null;
+    }
+  }
+
   /**
    * Event handler executed when the user clicks on the map
    * @param {any} e
    */
   onClickMap(e: any) {
-    this.latitude = e.latlng.lat;
-    this.longitude = e.latlng.lng;
+    if (this.canSetMapPin) {
+      this.locationAccuracy = this.locationChoice.clickMap;
+      this.coordinatesFormat = 'Decimal';
+      this.latitude = e.latlng.lat;
+      this.longitude = e.latlng.lng;
+    }
+  }
+
+  public get canSetMapPin(): boolean {
+    return !this.isChangedCoordinates;
   }
 
   onChangePhoto(e: any) {
     const photo = e.target.files[0];
     const self = this;
 
-    EXIF.getData(photo, async function () {
-      // We get the coordinated in minutes, seconds
-      const minLatitude: any[] = EXIF.getTag(this, 'GPSLatitude');
-      const minLongitude: any[] = EXIF.getTag(this, 'GPSLongitude');
+    if (photo) {
+      EXIF.getData(photo, async function () {
+        // We get the coordinated in minutes, seconds
+        const minLatitude: any[] = EXIF.getTag(this, 'GPSLatitude');
+        const minLongitude: any[] = EXIF.getTag(this, 'GPSLongitude');
 
-      // We determine in for which hemisphere the coordinates are for
-      const latitudeRef = EXIF.getTag(this, 'GPSLatitudeRef') || 'N';
-      const longitudeRef = EXIF.getTag(this, 'GPSLongitudeRef') || 'W';
+        // We determine in for which hemisphere the coordinates are for
+        const latitudeRef = EXIF.getTag(this, 'GPSLatitudeRef') || 'N';
+        const longitudeRef = EXIF.getTag(this, 'GPSLongitudeRef') || 'W';
 
-      if (!minLatitude || !minLongitude) {
-        alert(await this.translateService.get('imageGeoreference.error').toPromise());
-        return;
-      }
+        // Disable map if user fills in the coordinates through the photo
+        self.isChangedCoordinates = !!(minLatitude && minLongitude);
 
-      const latitude = (latitudeRef === 'N' ? 1 : -1) * self.convertMinutesToDegrees(minLatitude);
-      const longitude = (longitudeRef === 'E' ? 1 : -1) * self.convertMinutesToDegrees(minLongitude);
+        if (!minLatitude || !minLongitude) {
+          alert(await this.translateService.get('imageGeoreference.error').toPromise());
+          return;
+        } else {
+          self.locationAccuracy = self.locationChoice.photo;
+        }
 
-      // We convert them to decimal degrees
-      self.latitude = latitude;
-      self.longitude = longitude;
+        const latitude = (latitudeRef === 'N' ? 1 : -1) * self.convertMinutesToDegrees(minLatitude);
+        const longitude = (longitudeRef === 'E' ? 1 : -1) * self.convertMinutesToDegrees(minLongitude);
 
-      // We zoom in the area
-      self.map.setView([latitude, longitude], 8);
-    });
+        // We convert them to decimal degrees
+        self.coordinatesFormat = 'Decimal';
+        self.latitude = latitude;
+        self.longitude = longitude;
+
+        // We zoom in the area
+        self.map.setView([latitude, longitude], 8);
+      });
+    } else {
+      this.georeferencedPhoto.attachment = null;
+    }
+  }
+
+  public onChangeCoordinates(): void {
+    const decimalCoordinates = this.getDecimalCoordinates();
+    if (decimalCoordinates) {
+      this.isChangedCoordinates = true;
+      this.locationAccuracy = this.locationChoice.manually;
+    }
+  }
+
+  public onChangeEvidence(files: FileList): void {
+    const photo: File = files[0];
+    this.georeferencedPhoto.isUsed = false;
+    if (!photo) {
+      this.evidence.attachment = null;
+    }
+  }
+
+  public uploadAsEvidencePhoto(): void {
+    this.georeferencedPhoto.isUsed = true;
+    this.evidence.attachment = this.georeferencedPhoto.attachment;
+    this.evidenceInput.nativeElement.value = '';
+    this.evidenceBlock.nativeElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
   }
 
   /**
@@ -719,12 +1148,17 @@ export class ObservationDetailComponent {
     this._relevantOperatorsSelection = options;
   }
 
+  onChangeGovernmentsOptions(options: number[]): void {
+    this._governmentsSelection = options;
+  }
+
   /**
    * Event handler executed when the user clicks the "Add evidence" button
    */
   onClickAddEvidence() {
     const evidence = this.datastoreService.createRecord(ObservationDocument, {
       name: this.evidence.name,
+      type: this.evidence.type,
       attachment: this.evidence.attachment
     });
 
@@ -737,6 +1171,7 @@ export class ObservationDetailComponent {
     // the existing one otherwise evidence will "suffer" the same
     // changes
     this.evidence = this.datastoreService.createRecord(ObservationDocument, {});
+    this.georeferencedPhoto.isUsed = false;
   }
 
   /**
@@ -770,6 +1205,14 @@ export class ObservationDetailComponent {
     this.router.navigate([(this.observation && !this.isCopied) ? '../..' : '..'], { relativeTo: this.route });
   }
 
+  onClickAmend(): void {
+    this.needsRevisionState = 'amend';
+  }
+
+  onClickExplainAndPublish(): void {
+    this.needsRevisionState = 'explain';
+  }
+
   /**
    * Return whether the form is disabled
    * @returns {boolean}
@@ -781,7 +1224,8 @@ export class ObservationDetailComponent {
       return false;
     }
 
-    if (this.observation['validation-status'] !== 'Created' && this.observation['validation-status'] !== 'Under revision') {
+    if (this.observation.hidden || this.observation['validation-status'] !== 'Created'
+      && (this.observation['validation-status'] !== 'Needs revision' || this.needsRevisionState !== 'amend')) {
       return true;
     }
 
@@ -900,17 +1344,24 @@ export class ObservationDetailComponent {
     });
 
     // We create an array of the documents to upload
-    const uploadPromises = this.documentsToUpload.map((d) => {
+    const uploadPromises = !this.isEvidenceTypeOnReport(this.evidenceType) ? this.documentsToUpload.map((d) => {
       d.observation = observation; // We link the document to the observation
       return d.save().toPromise();
-    });
+    }) : [];
 
     return Promise.all(deletePromises.concat(<any>uploadPromises));
   }
 
   async onSubmitForReview() {
     if (window.confirm(await this.translateService.get('observationSubmitForReview').toPromise())) {
-      this.validationStatus = 'Ready for revision';
+      this.validationStatus = 'Ready for QC';
+      this.onSubmit();
+    }
+  }
+
+  async onPublish(validationStatus) {
+    if (window.confirm(await this.translateService.get('observationPublish').toPromise())) {
+      this.validationStatus = validationStatus;
       this.onSubmit();
     }
   }
@@ -928,6 +1379,8 @@ export class ObservationDetailComponent {
         .concat([this.observers.find(o => o.id === this.authService.userObserverId)]);
 
       if (this.type !== 'operator') {
+        this.observation.governments = this.governments
+          .filter((government, index) => this._governmentsSelection.indexOf(index) !== -1);
         this.observation['relevant-operators'] = this.operators
           .filter((operator, index) => this._relevantOperatorsSelection.indexOf(index) !== -1);
       } else {
@@ -935,12 +1388,15 @@ export class ObservationDetailComponent {
           this.observation.lat = null;
           this.observation.lng = null;
           this.observation.fmu = null;
+        } else {
+          const decimalCoordinates = this.getDecimalCoordinates();
+          console.log(decimalCoordinates);
+          this.observation.lat = decimalCoordinates && decimalCoordinates[0];
+          this.observation.lng = decimalCoordinates && decimalCoordinates[1];
         }
       }
 
-      this.observation['validation-status'] = this.validationStatus === 'Under revision'
-        ? 'Ready for revision'
-        : this.validationStatus;
+      this.observation['validation-status'] = this.validationStatus;
 
       observation = this.observation;
     } else {
@@ -954,21 +1410,26 @@ export class ObservationDetailComponent {
         observers: this.observers.filter((observer, index) => this._additionalObserversSelection.indexOf(index) !== -1),
         'actions-taken': this.actions,
         'validation-status': this.validationStatus,
-        'concern-opinion': this.opinion
+        'concern-opinion': this.opinion,
+        'evidence-type': this.evidenceType,
+        'evidence-on-report': this.evidenceOnReport
       };
 
       if (this.type === 'operator') {
+        const decimalCoordinates = this.getDecimalCoordinates();
+
         model.operator = this.operatorChoice;
         model['is-physical-place'] = this.physicalPlace;
-        model.lat = this.physicalPlace ? this.latitude : null;
-        model.lng = this.physicalPlace ? this.longitude : null;
+        model.lat = this.physicalPlace && decimalCoordinates ? decimalCoordinates[0] : null;
+        model.lng = this.physicalPlace && decimalCoordinates ? decimalCoordinates[1] : null;
         model['litigation-status'] = this.litigationStatus;
         model.law = this.law;
         model.pv = this.pv;
         model.fmu = this.physicalPlace ? this.fmu : null;
+        model['location-accuracy'] = this.locationAccuracy;
         model['location-information'] = this.locationInformation;
       } else {
-        model.government = this.government;
+        model.governments = this.governments.filter((government, index) => this._governmentsSelection.indexOf(index) !== -1);
         model['relevant-operators'] = this.operators.filter((operator, index) => this._relevantOperatorsSelection.indexOf(index) !== -1);
       }
 
@@ -999,6 +1460,7 @@ export class ObservationDetailComponent {
         if (this.observation && !this.isCopied) {
           alert(await this.translateService.get('observationUpdate.success').toPromise());
         } else {
+          localStorage.removeItem('draftObservation');
           alert(await this.translateService.get('observationCreation.success').toPromise());
         }
 

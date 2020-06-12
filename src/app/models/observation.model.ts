@@ -16,15 +16,17 @@ import { Subcategory } from 'app/models/subcategory.model';
 import { Severity } from 'app/models/severity.model';
 
 @JsonApiModelConfig({
-    type: 'observations'
+  type: 'observations'
 })
 export class Observation extends JsonApiModel {
 
   @Attribute() 'observation-type': string;
-  @Attribute() 'publication-date': Date;
+  @Attribute() 'publication-date'?: Date;
   @Attribute() pv?: string;
   @Attribute() 'validation-status'?: string;
   @Attribute() details?: string;
+  @Attribute() 'evidence-type': string;
+  @Attribute() 'evidence-on-report'?: string;
   @Attribute() evidence?: string;
   @Attribute() 'concern-opinion'?: string;
   @Attribute() 'litigation-status'?: string;
@@ -34,7 +36,11 @@ export class Observation extends JsonApiModel {
   @Attribute() 'updated-at'?: Date;
   @Attribute() 'actions-taken'?: string;
   @Attribute() 'location-information'?: string;
+  @Attribute() 'location-accuracy'?: string;
   @Attribute() 'is-physical-place': boolean;
+  @Attribute() 'hidden': boolean; // Whether an observation is archived
+  @Attribute() 'admin-comment'?: string;
+  @Attribute() 'monitor-comment'?: string;
 
   @BelongsTo() fmu?: Fmu;
   @BelongsTo() law?: Law;
@@ -45,7 +51,7 @@ export class Observation extends JsonApiModel {
   @BelongsTo() 'modified-user'?: User;
   @HasMany() observers?: Observer[]; // Should be a BelongsTo but not working with array
   @BelongsTo() operator?: Operator;
-  @BelongsTo() government?: Government;
+  @HasMany() governments?: Government[];
   @BelongsTo() 'observation-report'?: ObservationReport;
   @HasMany() 'relevant-operators'?: Operator[];
   @HasMany() 'observation-documents': ObservationDocument[];
