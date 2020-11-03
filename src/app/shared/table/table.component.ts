@@ -21,11 +21,12 @@ export class TableComponent implements AfterContentInit {
 
   public rows: any[] = [];
   public rowCount: number; // Number of total rows (total results)
+  @Input() name: string; // Unique name of the table
   @Input() caption: string;
-  @Input() perPage = 10;
   @Input() include: string[] = []; // Include param for the query
   @Input() defaultSort: string; // Default sort param (ex: "name" or "-name")
   @Input() options: any; // Additional options for the table
+  @Input() defaultHiddenColumns: string[] = [];
 
   @Output() change = new EventEmitter<void>();
 
@@ -34,21 +35,23 @@ export class TableComponent implements AfterContentInit {
   columns: any[] = [];
   sortColumn: any; // Column used for sorting the table
   sortOrder: 'asc' | 'desc'; // Sort order
+  _perPage = 10;
+  perPageOptions = [10, 20, 50, 100];
 
   private _columnTemplates: QueryList<TableColumnDirective>;
   private _paginationIndex = 0; // Zero-based number of the page
 
   get hiddenColumns(): string[] {
     try {
-      const storedValue = JSON.parse(localStorage.getItem('observations-hidden-columns'));
-      return Array.isArray(storedValue) ? storedValue : [];
+      const storedValue = JSON.parse(localStorage.getItem(`${this.name}-hidden-columns`));
+      return Array.isArray(storedValue) ? storedValue : this.defaultHiddenColumns;
     } catch (e) {
-      return [];
+      return this.defaultHiddenColumns;
     }
   }
 
   set hiddenColumns(hiddenColumns: string[]) {
-    localStorage.setItem('observations-hidden-columns', JSON.stringify(hiddenColumns));
+    localStorage.setItem(`${this.name}-hidden-columns`, JSON.stringify(hiddenColumns));
   }
 
   @ContentChildren(TableColumnDirective)
@@ -165,6 +168,16 @@ export class TableComponent implements AfterContentInit {
     return this.currentPage === this.lastPage ? null : this.currentPage + 1;
   }
 
+  get perPage(): number {
+    return this._perPage;
+  }
+
+  set perPage(page: number) {
+    this._perPage = page;
+    this.currentPage = 1;
+    this.change.emit();
+  }
+
   get state(): TableState {
     const include = [
       ...this.columns.filter(col => col.include)
@@ -268,6 +281,8 @@ export class TableComponent implements AfterContentInit {
       }
     }
 
+    this.perPage = this.previousState.page.size || this.perPage;
+
     this.change.emit();
   }
 
@@ -340,12 +355,13 @@ export class TableComponent implements AfterContentInit {
     return -c / 2 * (t * (t - 2) - 1) + b;
   }
 
-  onClickHide(column: any) {
-    this.hiddenColumns = [...this.hiddenColumns, column.name];
-  }
+  onToggleColumnVisibility(e: Event, columnName: string): void {
+    const visible = (<HTMLInputElement>e.target).checked;
 
-  onClickResetColumnsVisibility() {
-    this.hiddenColumns = [];
+    if (visible) {
+      this.hiddenColumns = [...this.hiddenColumns].filter(column => column !== columnName);
+    } else {
+      this.hiddenColumns = [...this.hiddenColumns, columnName];
+    }
   }
-
 }
